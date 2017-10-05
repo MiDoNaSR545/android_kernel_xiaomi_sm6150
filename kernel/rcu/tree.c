@@ -787,7 +787,7 @@ static void rcu_eqs_enter_common(bool user)
 	}
 	rcu_prepare_for_idle();
 	rcu_preempt_deferred_qs(current);
-	rdtp->dynticks_nesting = 0;
+	WRITE_ONCE(rdtp->dynticks_nesting, 0); /* Avoid irq-access tearing. */
 	rcu_dynticks_eqs_enter();
 	rcu_dynticks_task_enter();
 }
@@ -985,7 +985,7 @@ static void rcu_eqs_exit(bool user)
 		rdtp->dynticks_nesting++;
 	} else {
 		rcu_eqs_exit_common(1, user);
-		rdtp->dynticks_nesting = 1;
+		WRITE_ONCE(rdtp->dynticks_nesting, 1);
 		WRITE_ONCE(rdtp->dynticks_nmi_nesting, DYNTICK_IRQ_NONIDLE);
 	}
 }
@@ -3745,7 +3745,7 @@ rcu_init_percpu_data(int cpu, struct rcu_state *rsp)
 	if (rcu_segcblist_empty(&rdp->cblist) && /* No early-boot CBs? */
 	    !init_nocb_callback_list(rdp))
 		rcu_segcblist_init(&rdp->cblist);  /* Re-enable callbacks. */
-	rdp->dynticks->dynticks_nesting = 1;
+	rdp->dynticks->dynticks_nesting = 1;	/* CPU not up, no tearing. */
 	rcu_dynticks_eqs_online();
 	raw_spin_unlock_rcu_node(rnp);		/* irqs remain disabled. */
 
