@@ -5436,7 +5436,7 @@ recheck:
 			return -EINVAL;
 	}
 
-	if (attr->sched_flags & ~SCHED_FLAG_ALL)
+	if (attr->sched_flags & ~(SCHED_FLAG_ALL | SCHED_FLAG_SUGOV))
 		return -EINVAL;
 
 	/*
@@ -5507,6 +5507,9 @@ recheck:
 	}
 
 	if (user) {
+		if (attr->sched_flags & SCHED_FLAG_SUGOV)
+			return -EINVAL;
+
 		retval = security_task_setscheduler(p);
 		if (retval)
 			return retval;
@@ -5573,7 +5576,8 @@ change:
 		}
 #endif
 #ifdef CONFIG_SMP
-		if (dl_bandwidth_enabled() && dl_policy(policy)) {
+		if (dl_bandwidth_enabled() && dl_policy(policy) &&
+				!(attr->sched_flags & SCHED_FLAG_SUGOV)) {
 			cpumask_t *span = rq->rd->span;
 
 			/*
