@@ -2662,6 +2662,7 @@ void rcu_check_callbacks(int user)
 
 		rcu_sched_qs();
 		rcu_bh_qs();
+		rcu_note_voluntary_context_switch(current);
 
 	} else if (!in_softirq()) {
 
@@ -2686,8 +2687,7 @@ void rcu_check_callbacks(int user)
 	}
 	if (rcu_pending())
 		invoke_rcu_core();
-	if (user)
-		rcu_note_voluntary_context_switch(current);
+
 	trace_rcu_utilization(TPS("End scheduler-tick"));
 }
 
