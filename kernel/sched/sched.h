@@ -983,8 +983,7 @@ struct rq {
 	u64			age_stamp;
 	struct sched_avg	avg_rt;
 	struct sched_avg	avg_dl;
-#if defined(CONFIG_IRQ_TIME_ACCOUNTING) || defined(CONFIG_PARAVIRT_TIME_ACCOUNTING)
-#define HAVE_SCHED_AVG_IRQ
+#ifdef CONFIG_HAVE_SCHED_AVG_IRQ
 	struct sched_avg	avg_irq;
 #endif
 	u64			idle_stamp;
@@ -2271,7 +2270,7 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 
 #else
 
-#ifdef HAVE_SCHED_AVG_IRQ
+#ifdef CONFIG_HAVE_SCHED_AVG_IRQ
 static inline
 unsigned long scale_irq_capacity(unsigned long util, unsigned long irq, unsigned long max)
 {
