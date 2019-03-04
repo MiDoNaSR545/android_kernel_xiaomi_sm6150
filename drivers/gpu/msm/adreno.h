@@ -403,7 +403,6 @@ struct adreno_device_private {
  * @regfw_name: Filename for the register sequence firmware
  * @gpmu_tsens: ID for the temporature sensor used by the GPMU
  * @max_power: Max possible power draw of a core, units elephant tail hairs
- * @va_padding: Size to pad allocations to, zero if not required
  * @cx_ipeak_gpu_freq : Default Cx Ipeak GPU frequency
  */
 struct adreno_gpu_core {
@@ -435,7 +434,6 @@ struct adreno_gpu_core {
 	const char *regfw_name;
 	unsigned int gpmu_tsens;
 	unsigned int max_power;
-	uint64_t va_padding;
 	unsigned int cx_ipeak_gpu_freq;
 };
 
@@ -1311,12 +1309,6 @@ ADRENO_TARGET(a512, ADRENO_REV_A512)
 ADRENO_TARGET(a530, ADRENO_REV_A530)
 ADRENO_TARGET(a540, ADRENO_REV_A540)
 
-static inline int adreno_is_a530v1(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A530) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
-}
-
 static inline int adreno_is_a530v2(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A530) &&
@@ -1335,41 +1327,11 @@ static inline int adreno_is_a504_to_a506(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) <= 506;
 }
 
-static inline int adreno_is_a540v1(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A540) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
-}
-
-static inline int adreno_is_a540v2(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A540) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
-}
-
 ADRENO_TARGET(a610, ADRENO_REV_A610)
 ADRENO_TARGET(a612, ADRENO_REV_A612)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
 ADRENO_TARGET(a680, ADRENO_REV_A680)
-
-static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A630) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
-}
-
-static inline int adreno_is_a630v2(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A630) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1);
-}
-
-static inline int adreno_is_a640v1(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A640) &&
-		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
-}
 
 static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)
 {
