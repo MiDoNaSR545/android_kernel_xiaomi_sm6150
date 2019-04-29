@@ -317,11 +317,14 @@ static void adjust_jiffies(unsigned long val, struct cpufreq_freqs *ci)
 static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
 		struct cpufreq_freqs *freqs, unsigned int state)
 {
+	int cpu;
+
 	BUG_ON(irqs_disabled());
 
 	if (cpufreq_disabled())
 		return;
 
+	freqs->policy = policy;
 	freqs->flags = cpufreq_driver->flags;
 	pr_debug("notification %u of frequency transition to %u kHz\n",
 		 state, freqs->new);
@@ -341,8 +344,10 @@ static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
 				freqs->old = policy->cur;
 			}
 		}
+
 		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
-				CPUFREQ_PRECHANGE, freqs);
+					 CPUFREQ_PRECHANGE, freqs);
+
 		adjust_jiffies(CPUFREQ_PRECHANGE, freqs);
 		break;
 
@@ -350,7 +355,8 @@ static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
 		adjust_jiffies(CPUFREQ_POSTCHANGE, freqs);
 		pr_debug("FREQ: %lu - CPU: %lu\n",
 			 (unsigned long)freqs->new, (unsigned long)freqs->cpu);
-		trace_cpu_frequency(freqs->new, freqs->cpu);
+		trace_cpu_frequency(freqs->new, cpu);
+
 		cpufreq_stats_record_transition(policy, freqs->new);
 		cpufreq_times_record_transition(policy, freqs->new);
 		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
