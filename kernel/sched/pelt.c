@@ -344,6 +344,7 @@ int update_dl_rq_load_avg(u64 now, struct rq *rq, int running)
 	return 0;
 }
 
+
 #ifdef CONFIG_HAVE_SCHED_AVG_IRQ
 /*
  * irq:
@@ -363,8 +364,8 @@ int update_irq_load_avg(struct rq *rq, u64 running)
 	 * clock_task. Instead we directly scale the running time to
 	 * reflect the real amount of computation
 	 */
-	running = cap_scale(running, arch_scale_freq_capacity(NULL, cpu_of(rq)));
-	running = cap_scale(running, arch_scale_cpu_capacity(NULL, cpu_of(rq)));
+	running = cap_scale(running, arch_scale_freq_capacity(cpu_of(rq)));
+	running = cap_scale(running, arch_scale_cpu_capacity(cpu_of(rq)));
 
 	/*
 	 * We know the time that has been used by interrupt since last update

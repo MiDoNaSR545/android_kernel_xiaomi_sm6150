@@ -336,7 +336,7 @@ static inline bool __dl_overflow(struct dl_bw *dl_b, unsigned long cap,
  */
 static inline bool dl_task_fits_capacity(struct task_struct *p, int cpu)
 {
-	unsigned long cap = arch_scale_cpu_capacity(NULL, cpu);
+	unsigned long cap = arch_scale_cpu_capacity(cpu);
 
 	return cap_scale(p->dl.dl_deadline, cap) >= p->dl.dl_runtime;
 }
@@ -2134,7 +2134,7 @@ extern unsigned long sched_get_rt_rq_util(int cpu);
 
 #ifndef arch_scale_freq_capacity
 static __always_inline
-unsigned long arch_scale_freq_capacity(struct sched_domain *sd, int cpu)
+unsigned long arch_scale_freq_capacity(int cpu)
 {
 	return SCHED_CAPACITY_SCALE;
 }
@@ -2357,7 +2357,7 @@ add_capacity_margin(unsigned long cpu_capacity, int cpu)
 
 static inline void sched_rt_avg_update(struct rq *rq, u64 rt_delta)
 {
-	rq->rt_avg += rt_delta * arch_scale_freq_capacity(NULL, cpu_of(rq));
+	rq->rt_avg += rt_delta * arch_scale_freq_capacity(cpu_of(rq));
 	sched_avg_update(rq);
 }
 #else
