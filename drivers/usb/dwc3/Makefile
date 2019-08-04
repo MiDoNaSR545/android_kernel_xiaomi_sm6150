@@ -11,6 +11,8 @@ ifneq ($(CONFIG_TRACING),)
 	dwc3-y				+= trace.o
 endif
 
+dwc3-$(CONFIG_DEBUG_FS)		+= debug_ipc.o
+
 ifneq ($(filter y,$(CONFIG_USB_DWC3_HOST) $(CONFIG_USB_DWC3_DUAL_ROLE)),)
 	dwc3-y				+= host.o
 endif

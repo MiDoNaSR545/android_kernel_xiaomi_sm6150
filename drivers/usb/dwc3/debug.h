@@ -672,7 +672,7 @@ static inline const char *dwc3_gadget_generic_cmd_status_string(int status)
 	}
 }
 
-#ifdef CONFIG_IPC_LOGGING
+#ifdef CONFIG_DEBUG_FS
 void dwc3_dbg_print(struct dwc3 *dwc, u8 ep_num,
 		const char *name, int status, const char *extra);
 void dwc3_dbg_done(struct dwc3 *dwc, u8 ep_num,
