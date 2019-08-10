@@ -6715,7 +6715,10 @@ boosted_cpu_util(int cpu, struct sched_walt_cpu_load *walt_load)
 	unsigned long util = cpu_util_freq(cpu, walt_load);
 	long margin = schedtune_cpu_margin(util, cpu);
 
-	return util + margin;
+	if (sched_feat(SCHEDTUNE_BOOST_UTIL))
+		return util + margin;
+	else
+		return util;
 }
 
 static inline unsigned long
@@ -6724,7 +6727,10 @@ boosted_task_util(struct task_struct *task)
 	unsigned long util = task_util_est(task);
 	long margin = schedtune_task_margin(task);
 
-	return util + margin;
+	if (sched_feat(SCHEDTUNE_BOOST_UTIL))
+		return util + margin;
+	else
+		return util;
 }
 
 static unsigned long cpu_util_without(int cpu, struct task_struct *p);
