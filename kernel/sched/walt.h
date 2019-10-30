@@ -36,6 +36,7 @@
 #define NEW_TASK_ACTIVE_TIME 100000000
 
 extern unsigned int sched_ravg_window;
+extern unsigned int new_sched_ravg_window;
 extern unsigned int max_possible_efficiency;
 extern unsigned int min_possible_efficiency;
 extern unsigned int max_possible_freq;
