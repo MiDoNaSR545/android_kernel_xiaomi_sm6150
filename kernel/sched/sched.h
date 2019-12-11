@@ -2767,8 +2767,8 @@ static inline bool uclamp_rq_is_idle(struct rq *rq)
  * static key is disabled.
  */
 static __always_inline
-unsigned long uclamp_util_with(struct rq *rq, unsigned long util,
-			       struct task_struct *p)
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+				  struct task_struct *p)
 {
 	unsigned long min_util = 0;
 	unsigned long max_util = 0;
@@ -2823,8 +2823,9 @@ inline void uclamp_rq_inc_id(struct rq *rq, struct task_struct *p,
 inline void uclamp_rq_dec_id(struct rq *rq, struct task_struct *p,
 			     enum uclamp_id clamp_id);
 #else /* CONFIG_UCLAMP_TASK */
-static inline unsigned long uclamp_util_with(struct rq *rq, unsigned long util,
-					     struct task_struct *p)
+static inline
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+				  struct task_struct *p)
 {
 	return util;
 }
