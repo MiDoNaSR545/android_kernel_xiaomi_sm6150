@@ -855,6 +855,15 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 	} else if (IS_ENABLED(CONFIG_QCOM_KGSL_IOCOHERENCY_DEFAULT))
 		flags |= KGSL_MEMFLAGS_IOCOHERENT;
 
+	/*
+	 * We can't enable I/O coherency on uncached surfaces because of
+	 * situations where hardware might snoop the cpu caches which can
+	 * have stale data. This happens primarily due to the limitations
+	 * of dma caching APIs available on arm64
+	 */
+	if (!kgsl_cachemode_is_cached(flags))
+		flags &= ~((u64) KGSL_MEMFLAGS_IOCOHERENT);
+
 	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE) || (flags & KGSL_MEMFLAGS_GUARD_PAGE))
 		memdesc->priv |= KGSL_MEMDESC_GUARD_PAGE;
 
