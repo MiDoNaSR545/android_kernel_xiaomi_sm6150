@@ -149,8 +149,8 @@ static unsigned long long_max = LONG_MAX;
 static int one_hundred = 100;
 #ifdef CONFIG_OPLUS_MM_HACKS
 extern int direct_vm_swappiness;
-static int two_hundred = 200;
 #endif /* CONFIG_OPLUS_MM_HACKS */
+static int two_hundred = 200;
 static int one_thousand = 1000;
 #ifdef CONFIG_SCHED_WALT
 static int two_million = 2000000;
@@ -1715,11 +1715,7 @@ static struct ctl_table vm_table[] = {
 		.mode		= 0444,
 		.proc_handler	= proc_swappiness_handler,
 		.extra1		= &zero,
-#ifdef CONFIG_OPLUS_MM_HACKS
 		.extra2         = &two_hundred,
-#else
-		.extra2		= &one_hundred,
-#endif /* CONFIG_OPLUS_MM_HACKS */
 	},
 #ifdef CONFIG_OPLUS_MM_HACKS
 	{
