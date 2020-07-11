@@ -2822,6 +2822,62 @@ static inline void account_numa_dequeue(struct rq *rq, struct task_struct *p)
 
 #endif /* CONFIG_NUMA_BALANCING */
 
+DEFINE_PER_CPU(unsigned long *, prioritized_task_mask);
+DEFINE_PER_CPU(int, prioritized_task_nr);
+
+static bool bitmap_testbit(unsigned long *map, unsigned long bit)
+{
+	if (*(map + BIT_WORD(bit)) & BIT_MASK(bit))
+		return true;
+
+	return false;
+}
+
+static void inc_prioritized_task_count(struct rq *rq, struct task_struct *p)
+{
+	bool bitset;
+	int boosted = schedtune_task_boost(p) > 0;
+
+	if (is_min_capacity_cpu(cpu_of(rq)))
+		return;
+
+	if (p->pid > PID_MAX_DEFAULT)
+		return;
+
+	bitset = bitmap_testbit(per_cpu(prioritized_task_mask, cpu_of(rq)),
+				p->pid);
+
+	if (boosted && p->prio <= DEFAULT_PRIO) {
+		if (likely(!bitset)) {
+			__bitmap_set(per_cpu(prioritized_task_mask, cpu_of(rq)),
+				     p->pid, 1);
+			per_cpu(prioritized_task_nr, cpu_of(rq))++;
+		}
+	} else if (unlikely(bitset)) {
+		__bitmap_clear(per_cpu(prioritized_task_mask, cpu_of(rq)),
+			       p->pid, 1);
+		if (per_cpu(prioritized_task_nr, cpu_of(rq)) > 0)
+			per_cpu(prioritized_task_nr, cpu_of(rq))--;
+	}
+}
+
+static void dec_prioritized_task_count(struct rq *rq, struct task_struct *p)
+{
+	if (is_min_capacity_cpu(cpu_of(rq)))
+		return;
+
+	if (p->pid > PID_MAX_DEFAULT)
+		return;
+
+	if (bitmap_testbit(per_cpu(prioritized_task_mask, cpu_of(rq)),
+			   p->pid)) {
+		__bitmap_clear(per_cpu(prioritized_task_mask, cpu_of(rq)),
+			       p->pid, 1);
+		if (per_cpu(prioritized_task_nr, cpu_of(rq)) > 0)
+			per_cpu(prioritized_task_nr, cpu_of(rq))--;
+	}
+}
+
 static void
 account_entity_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
@@ -2837,6 +2893,9 @@ account_entity_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	}
 #endif
 	cfs_rq->nr_running++;
+	if (likely(entity_is_task(se))) {
+		inc_prioritized_task_count(rq_of(cfs_rq), task_of(se));
+	}
 }
 
 static void
@@ -2852,6 +2911,9 @@ account_entity_dequeue(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	}
 #endif
 	cfs_rq->nr_running--;
+	if (likely(entity_is_task(se))) {
+		dec_prioritized_task_count(rq_of(cfs_rq), task_of(se));
+	}
 }
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -7638,6 +7700,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	struct sched_group *sg;
 	int best_active_cpu = -1;
 	int best_idle_cpu = -1;
+	int best_prioritized_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
 	long spare_wake_cap, most_spare_wake_cap = 0;
@@ -7646,6 +7709,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 	int prev_cpu = task_cpu(p);
 	bool next_group_higher_cap = false;
 	int isolated_candidate = -1;
+	bool prioritized_task = boosted && p->prio <= DEFAULT_PRIO;
 
 	*backup_cpu = -1;
 
@@ -7700,6 +7764,7 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			unsigned long wake_util, new_util, new_util_cuml;
 			long spare_cap;
 			int idle_idx = INT_MAX;
+			bool best_prioritized_candidate;
 
 			trace_sched_cpu_util(i);
 
@@ -7753,6 +7818,10 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * than the one required to boost the task.
 			 */
 			new_util = max(min_util, new_util);
+			best_prioritized_candidate =
+				prioritized_task && !is_min_capacity_cpu(i) &&
+				per_cpu(prioritized_task_nr, i) == 0;
+
 			if (new_util > capacity_orig)
 				continue;
 
@@ -7825,11 +7894,16 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				if (best_idle_cpu != -1)
 					continue;
 
+				if (best_prioritized_candidate) {
+					best_prioritized_cpu = i;
+					continue;
+				}
+
 				/*
 				 * Skip searching for active CPU for tasks have
-				 * high priority & prefer_high_cap.
+				 * high priority & boosted.
 				 */
-				if (boosted && p->prio <= DEFAULT_PRIO)
+				if (prioritized_task)
 					continue;
 				/*
 				 * Case A.2: Target ACTIVE CPU
@@ -7993,8 +8067,10 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		 * accommodated in the higher capacity CPUs.
 		 */
 		if ((prefer_idle && best_idle_cpu != -1) ||
-		    (boosted && (best_idle_cpu != -1 || target_cpu != -1))) {
-			if (boosted) {
+			(prioritized_task && best_prioritized_cpu != -1) ||
+			(boosted && p->prio > DEFAULT_PRIO &&
+			(target_cpu != -1))) {
+			if (prioritized_task) {
 				if (!next_group_higher_cap)
 					break;
 			} else {
@@ -8004,6 +8080,10 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 		}
 
 	} while (sg = sg->next, sg != sd->groups);
+
+	if (prioritized_task && (best_prioritized_cpu != -1)) {
+		target_cpu = best_prioritized_cpu;
+	}
 
 	if (best_idle_cpu != -1 && !is_packing_eligible(p, target_cpu, fbt_env,
 					active_cpus_count, best_idle_cstate,
