@@ -24,6 +24,11 @@
 #include <linux/sched/energy.h>
 #include <linux/cpuset.h>
 
+bool topology_scale_freq_invariant(void)
+{
+	return cpufreq_supports_freq_invariance();
+}
+
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, efficiency) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, max_cpu_freq);
