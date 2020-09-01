@@ -230,14 +230,7 @@ static int bL_cpufreq_set_target(struct cpufreq_policy *policy,
 		}
 	}
 
-	ret = bL_cpufreq_set_rate(cpu, actual_cluster, new_cluster, freqs_new);
-
-	if (!ret) {
-		arch_set_freq_scale(policy->related_cpus, freqs_new,
-				    policy->cpuinfo.max_freq);
-	}
-
-	return ret;
+	return bL_cpufreq_set_rate(cpu, actual_cluster, new_cluster, freqs_new);
 }
 
 static inline u32 get_table_count(struct cpufreq_frequency_table *table)
