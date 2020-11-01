@@ -143,7 +143,7 @@
  * generally leads to usage of higher frequencies.
  * If disabled, boosts will only bias tasks to higher-capacity CPUs.
  */
-#define SCHED_FEAT_SCHEDTUNE_BOOST_UTIL 1
+#define SCHED_FEAT_SCHEDTUNE_BOOST_UTIL 0
 
 #define SCHED_FEAT_ALT_PERIOD 0
 #define SCHED_FEAT_BASE_SLICE 1
