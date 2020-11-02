@@ -8488,7 +8488,7 @@ static inline int wake_energy(struct task_struct *p, int prev_cpu,
 
 /*
  * select_task_rq_fair: Select target runqueue for the waking task in domains
- * that have the 'sd_flag' flag set. In practice, this is SD_BALANCE_WAKE,
+ * that have the relevant SD flag set. In practice, this is SD_BALANCE_WAKE,
  * SD_BALANCE_FORK, or SD_BALANCE_EXEC.
  *
  * Balances load by selecting the idlest cpu in the idlest group, or under
@@ -8499,16 +8499,18 @@ static inline int wake_energy(struct task_struct *p, int prev_cpu,
  * preempt must be disabled.
  */
 static int
-select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags,
+select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags,
 		    int sibling_count_hint)
 {
+	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
 	struct sched_domain *tmp, *affine_sd = NULL;
 	struct sched_domain *sd = NULL, *energy_sd = NULL;
 	int cpu = smp_processor_id();
 	int new_cpu = prev_cpu;
 	int want_affine = 0;
 	int want_energy = 0;
-	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
+	/* SD_flags and WF_flags share the first nibble */
+	int sd_flag = wake_flags & 0xF;
 
 	rcu_read_lock();
 
