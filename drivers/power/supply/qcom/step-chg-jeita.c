@@ -957,7 +957,7 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (!chip->usb_icl_votable)
 		goto set_jeita_fv;
 
-	pr_err("%s = %d FCC = %duA FV = %duV\n",
+	pr_debug("%s = %d FCC = %duA FV = %duV\n",
 		chip->jeita_fcc_config->param.prop_name, pval.intval, fcc_ua, fv_uv);
 
 	/* set and clear fast charge mode when soft jeita trigger and clear */
@@ -979,7 +979,7 @@ static int handle_jeita(struct step_chg_info *chip)
 					|| (pd_authen_result == 1)) {
 			if ((temp >= BATT_WARM_THRESHOLD || temp <= BATT_COOL_THRESHOLD)
 						&& !fast_mode_dis) {
-				pr_err("temp:%d disable fastcharge mode\n", temp);
+				pr_debug("temp:%d disable fastcharge mode\n", temp);
 				pval.intval = false;
 				rc = power_supply_set_property(chip->usb_psy,
 						POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
@@ -991,7 +991,7 @@ static int handle_jeita(struct step_chg_info *chip)
 			} else if ((temp < BATT_WARM_THRESHOLD - chip->jeita_fv_config->param.hysteresis)
 						&& (temp > BATT_COOL_THRESHOLD + chip->jeita_fv_config->param.hysteresis)
 							&& fast_mode_dis) {
-				pr_err("temp:%d enable fastcharge mode\n", temp);
+				pr_debug("temp:%d enable fastcharge mode\n", temp);
 				pval.intval = true;
 				rc = power_supply_set_property(chip->usb_psy,
 						POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
