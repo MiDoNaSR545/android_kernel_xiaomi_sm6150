@@ -46,6 +46,8 @@
 				__func__, ##__VA_ARGS__);	\
 	} while (0)
 
+#include <linux/printk_disable_msg.h>
+
 #define typec_rp_med_high(chg, typec_mode)			\
 	((typec_mode == POWER_SUPPLY_TYPEC_SOURCE_MEDIUM	\
 	|| typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH)	\
