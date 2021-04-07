@@ -376,9 +376,36 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	 * special [heap] marker for the heap:
 	 */
 	if (file) {
-		seq_pad(m, ' ');
-		seq_file_path(m, file, "\n");
-		goto done;
+		char *buf;
+		size_t size = seq_get_buf(m, &buf);
+
+		/*
+		 * This won't escape newline characters from the path. If a
+		 * program uses newlines in its paths then it can kick rocks.
+		 */
+		if (size > 1) {
+			const int inlen = size - 1;
+			int outlen = inlen;
+			char *p;
+
+			p = d_path_outlen(&file->f_path, buf, &outlen);
+			if (!IS_ERR(p)) {
+				size_t len;
+
+				if (outlen != inlen)
+					len = inlen - outlen - 1;
+				else
+					len = strlen(p);
+				memmove(buf, p, len);
+				buf[len] = '\n';
+				seq_commit(m, len + 1);
+				return;
+			}
+		}
+
+		/* Set the overflow status to get more memory */
+		seq_commit(m, -1);
+		return;
 	}
 
 	if (vma->vm_ops && vma->vm_ops->name) {
