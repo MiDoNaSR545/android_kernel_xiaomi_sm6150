@@ -5045,6 +5045,15 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		}
 	}
 
+	device->events_wq = alloc_workqueue("kgsl-events",
+		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
+
+	if (!device->events_wq) {
+		dev_err(device->dev, "Failed to allocate events workqueue\n");
+		status = -ENOMEM;
+		goto error_pwrctrl_close;
+	}
+
 	if (!devm_request_mem_region(device->dev, device->reg_phys,
 				device->reg_len, device->name)) {
 		KGSL_DRV_ERR(device, "request_mem_region failed\n");
@@ -5148,9 +5157,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 				PM_QOS_DEFAULT_VALUE);
 	}
 
-	device->events_wq = alloc_workqueue("kgsl-events",
-		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS | WQ_HIGHPRI, 0);
-
 	/* Initialize the snapshot engine */
 	kgsl_device_snapshot_init(device);
 
@@ -5162,6 +5168,11 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 error_close_mmu:
 	kgsl_mmu_close(device);
 error_pwrctrl_close:
+	if (device->events_wq) {
+		destroy_workqueue(device->events_wq);
+		device->events_wq = NULL;
+	}
+
 	kgsl_pwrctrl_close(device);
 error:
 	_unregister_device(device);
@@ -5171,7 +5182,10 @@ EXPORT_SYMBOL(kgsl_device_platform_probe);
 
 void kgsl_device_platform_remove(struct kgsl_device *device)
 {
-	destroy_workqueue(device->events_wq);
+	if (device->events_wq) {
+		destroy_workqueue(device->events_wq);
+		device->events_wq = NULL;
+	}
 
 	kfree(device->dev->dma_parms);
 	device->dev->dma_parms = NULL;
@@ -5200,6 +5214,16 @@ EXPORT_SYMBOL(kgsl_device_platform_remove);
 
 static void kgsl_core_exit(void)
 {
+	if (kgsl_driver.workqueue) {
+		destroy_workqueue(kgsl_driver.workqueue);
+		kgsl_driver.workqueue = NULL;
+	}
+
+	if (kgsl_driver.mem_workqueue) {
+		destroy_workqueue(kgsl_driver.mem_workqueue);
+		kgsl_driver.mem_workqueue = NULL;
+	}
+
 	kgsl_events_exit();
 	kgsl_core_debugfs_close();
 
@@ -5295,8 +5319,20 @@ static int __init kgsl_core_init(void)
 	kgsl_driver.workqueue = alloc_workqueue("kgsl-workqueue",
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
+	if (!kgsl_driver.workqueue) {
+		pr_err("kgsl: Failed to allocate kgsl workqueue\n");
+		result = -ENOMEM;
+		goto err;
+	}
+
 	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+
+	if (!kgsl_driver.mem_workqueue) {
+		pr_err("kgsl: Failed to allocate mem workqueue\n");
+		result = -ENOMEM;
+		goto err;
+	}
 
 	kthread_init_worker(&kgsl_driver.worker);
 
