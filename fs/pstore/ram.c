@@ -408,13 +408,7 @@ static int notrace ramoops_pstore_write(struct pstore_record *record)
 		persistent_ram_write(cxt->fprzs[zonenum], record->buf,
 				     record->size);
 		return 0;
-	} else if (record->type == PSTORE_TYPE_PMSG) {
-		pr_warn_ratelimited("PMSG shouldn't call %s\n", __func__);
-		return -EINVAL;
 	}
-
-	if (record->type != PSTORE_TYPE_DMESG)
-		return -EINVAL;
 
 	/*
 	 * We could filter on record->reason here if we wanted to (which
