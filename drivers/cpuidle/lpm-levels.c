@@ -69,7 +69,7 @@ struct lpm_cluster *lpm_root_node;
 #define lpm_prediction_enabled true
 #define lpm_ipi_prediction_enabled false
 
-static bool cluster_use_deepest_state;
+static bool cluster_use_deepest_state = true;
 module_param(cluster_use_deepest_state, bool, 0664);
 
 static uint32_t bias_hyst;
