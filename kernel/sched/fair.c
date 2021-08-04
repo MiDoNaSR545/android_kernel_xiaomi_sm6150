@@ -7943,16 +7943,12 @@ static inline int __select_idle_sibling(struct task_struct *p, int prev, int tar
 
 	/* Check a recently used CPU as a potential idle candidate */
 	recent_used_cpu = p->recent_used_cpu;
+	p->recent_used_cpu = prev;
 	if (recent_used_cpu != prev &&
 	    recent_used_cpu != target &&
 	    cpus_share_cache(recent_used_cpu, target) &&
 	    idle_cpu(recent_used_cpu) &&
-	    cpumask_test_cpu(p->recent_used_cpu, p->cpus_ptr)) {
-		/*
-		 * Replace recent_used_cpu with prev as it is a potential
-		 * candidate for the next wake.
-		 */
-		p->recent_used_cpu = prev;
+	    cpumask_test_cpu(recent_used_cpu, p->cpus_ptr)) {
 		return recent_used_cpu;
 	}
 
@@ -9148,9 +9144,6 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int wake_flags,
 pick_cpu:
 		if (wake_flags & WF_TTWU) { /* XXX always ? */
 			new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
-
-			if (want_affine)
-				current->recent_used_cpu = cpu;
 		}
 	} else {
 		if (energy_sd) {
