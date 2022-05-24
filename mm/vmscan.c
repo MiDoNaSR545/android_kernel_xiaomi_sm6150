@@ -56,6 +56,7 @@
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
 #endif
+#include <linux/simple_lmk.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -3879,14 +3880,21 @@ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
 	 * younger than min_ttl. However, another theoretical possibility is all
 	 * memcgs are either below min or empty.
 	 */
-	if (!success && !sc->order && mutex_trylock(&oom_lock)) {
-		struct oom_control oc = {
-			.gfp_mask = sc->gfp_mask,
-		};
+	if (!success) {
+#ifdef CONFIG_ANDROID_SIMPLE_LMK
+		simple_lmk_trigger();
+#else
+		if (!sc->order && mutex_trylock(&oom_lock)) {
+			struct oom_control oc = {
+				.gfp_mask = sc->gfp_mask,
+				.order = sc->order,
+			};
 
-		out_of_memory(&oc);
+			out_of_memory(&oc);
 
-		mutex_unlock(&oom_lock);
+			mutex_unlock(&oom_lock);
+		}
+#endif
 	}
 }
 
