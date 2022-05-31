@@ -898,6 +898,11 @@ static bool dc_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	}
 }
 
+bool hbm_skip_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
+{
+	return panel->hbm_mode && bl_lvl && bl_lvl != 0 && panel->last_bl_lvl != 0;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
@@ -908,6 +913,11 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		return 0;
 
 	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
+
+	if (hbm_skip_set_backlight(panel, bl_lvl)) {
+		panel->last_bl_lvl = bl_lvl;
+		return rc;
+	}
 
 	if (dc_set_backlight(panel, bl_lvl)) {
 		panel->last_bl_lvl = bl_lvl;
