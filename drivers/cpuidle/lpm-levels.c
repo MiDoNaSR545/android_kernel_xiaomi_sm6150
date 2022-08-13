@@ -1424,13 +1424,11 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	bool success = false;
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 	ktime_t start = ktime_get();
-	uint64_t start_time = ktime_to_ns(start), end_time;
 
 	cpu_prepare(cpu, idx, true);
-	cluster_prepare(cpu->parent, cpumask, idx, true, start_time);
+	cluster_prepare(cpu->parent, cpumask, idx, true, 0);
 
 	trace_cpu_idle_enter(idx);
-	lpm_stats_cpu_enter(idx, start_time);
 
 	if (need_resched())
 		goto exit;
@@ -1440,10 +1438,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cpuidle_clear_idle_cpu(dev->cpu);
 
 exit:
-	end_time = ktime_to_ns(ktime_get());
-	lpm_stats_cpu_exit(idx, end_time, success);
-
-	cluster_unprepare(cpu->parent, cpumask, idx, true, end_time, success);
+	cluster_unprepare(cpu->parent, cpumask, idx, true, 0, success);
 	cpu_unprepare(cpu, idx, true);
 	dev->last_residency = ktime_us_delta(ktime_get(), start);
 	update_history(dev, idx);
