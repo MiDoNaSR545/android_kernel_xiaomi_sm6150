@@ -958,6 +958,7 @@ KBUILD_LDFLAGS += -mllvm -inline-threshold=500
 else
 lto-clang-flags	:= -flto
 endif
+KBUILD_CFLAGS	+= -mllvm -unroll-threshold=1200
 lto-clang-flags += -fvisibility=hidden
 
 lto-clang-flags += -fsplit-machine-functions
