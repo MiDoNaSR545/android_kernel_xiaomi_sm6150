@@ -2084,8 +2084,8 @@ static void ffs_epfiles_destroy(struct ffs_epfile *epfiles, unsigned count)
 
 static void ffs_func_eps_disable(struct ffs_function *func)
 {
-	struct ffs_data *ffs;
 	struct ffs_ep *ep;
+	struct ffs_data *ffs = NULL;
 	struct ffs_epfile *epfile;
 	unsigned short count;
 	unsigned long flags;
@@ -2117,7 +2117,7 @@ static void ffs_func_eps_disable(struct ffs_function *func)
 
 static int ffs_func_eps_enable(struct ffs_function *func)
 {
-	struct ffs_data *ffs;
+	struct ffs_data *ffs = NULL;
 	struct ffs_ep *ep;
 	struct ffs_epfile *epfile;
 	unsigned short count;
