@@ -4255,7 +4255,11 @@ static inline int task_fits_cpu(struct task_struct *p, int cpu)
 	unsigned long uclamp_min = uclamp_eff_value(p, UCLAMP_MIN);
 	unsigned long uclamp_max = uclamp_eff_value(p, UCLAMP_MAX);
 	unsigned long util = task_util_est(p);
-	return util_fits_cpu(util, uclamp_min, uclamp_max, cpu);
+	/*
+	 * Return true only if the cpu fully fits the task requirements, which
+	 * include the utilization but also the performance hints.
+	 */
+	return (util_fits_cpu(util, uclamp_min, uclamp_max, cpu) > 0);
 }
 
 static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
@@ -4437,7 +4441,7 @@ static inline int util_fits_cpu(unsigned long util,
 				unsigned long uclamp_max,
 				int cpu)
 {
-	unsigned long capacity_orig, capacity_orig_thermal;
+	unsigned long capacity_orig, capacity_orig;
 	unsigned long capacity = capacity_of(cpu);
 	bool fits, uclamp_max_fits;
 
@@ -4474,7 +4478,6 @@ static inline int util_fits_cpu(unsigned long util,
 	 * the time.
 	 */
 	capacity_orig = capacity_orig_of(cpu);
-	capacity_orig_thermal = capacity_orig; // FIXME: thermal_pressure
 
 	/*
 	 * We want to force a task to fit a cpu as implied by uclamp_max.
@@ -4549,8 +4552,8 @@ static inline int util_fits_cpu(unsigned long util,
 	 * handle the case uclamp_min > uclamp_max.
 	 */
 	uclamp_min = min(uclamp_min, uclamp_max);
-	if (util < uclamp_min && capacity_orig != SCHED_CAPACITY_SCALE)
-		fits = fits && (uclamp_min <= capacity_orig_thermal);
+	if (fits && (util < uclamp_min) && (uclamp_min > capacity_orig))
+		return -1;
 
 	return fits;
 }
@@ -5912,6 +5915,15 @@ static inline void hrtick_update(struct rq *rq)
 #endif
 
 #ifdef CONFIG_SMP
+bool cpu_overutilized(int cpu)
+{
+	unsigned long rq_util_min = uclamp_rq_get(cpu_rq(cpu), UCLAMP_MIN);
+	unsigned long rq_util_max = uclamp_rq_get(cpu_rq(cpu), UCLAMP_MAX);
+
+	/* Return true only if the utilization doesn't fit CPU's capacity */
+	return !util_fits_cpu(cpu_util(cpu), rq_util_min, rq_util_max, cpu);
+}
+
 static bool sd_overutilized(struct sched_domain *sd)
 {
 	return sd->shared->overutilized;
@@ -8467,14 +8479,6 @@ static int wake_cap(struct task_struct *p, int cpu, int prev_cpu)
 	sync_entity_load_avg(&p->se);
 
 	return !task_fits_max(p, cpu);
-}
-
-bool cpu_overutilized(int cpu)
-{
-	unsigned long rq_util_min = uclamp_rq_get(cpu_rq(cpu), UCLAMP_MIN);
-	unsigned long rq_util_max = uclamp_rq_get(cpu_rq(cpu), UCLAMP_MAX);
-
-	return !util_fits_cpu(cpu_util(cpu), rq_util_min, rq_util_max, cpu);
 }
 
 DEFINE_PER_CPU(struct energy_env, eenv_cache);
@@ -11224,6 +11228,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	if (busiest->group_type == group_imbalanced)
 		goto force_balance;
 
+	local = &sds.local_stat;
 	/*
 	 * When dst_cpu is idle, prevent SMP nice and/or asymmetric group
 	 * capacities from resulting in underutilization due to avg_load.
