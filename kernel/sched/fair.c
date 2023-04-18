@@ -4250,7 +4250,13 @@ static inline unsigned long cfs_rq_load_avg(struct cfs_rq *cfs_rq)
 
 static int idle_balance(struct rq *this_rq, struct rq_flags *rf);
 
-static inline bool task_fits_capacity(struct task_struct *p, long capacity);
+static inline int task_fits_cpu(struct task_struct *p, int cpu)
+{
+	unsigned long uclamp_min = uclamp_eff_value(p, UCLAMP_MIN);
+	unsigned long uclamp_max = uclamp_eff_value(p, UCLAMP_MAX);
+	unsigned long util = task_util_est(p);
+	return util_fits_cpu(util, uclamp_min, uclamp_max, cpu);
+}
 
 static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
 {
@@ -4262,7 +4268,7 @@ static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
 		return;
 	}
 
-	if (task_fits_max(p, cpu_of(rq))) {
+	if (task_fits_cpu(p, cpu_of(rq))) {
 		rq->misfit_task_load = 0;
 		return;
 	}
@@ -7830,12 +7836,6 @@ static int select_idle_sibling(struct task_struct *p, int prev, int target)
 	return select_idle_sibling_cstate_aware(p, prev, target);
 }
 
-static inline bool task_fits_capacity(struct task_struct *p,
-					long capacity)
-{
-	return fits_capacity(task_util_est(p), capacity);
-}
-
 static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
@@ -7849,7 +7849,7 @@ static inline bool task_fits_max(struct task_struct *p, int cpu)
 			is_min_capacity_cpu(cpu))
 		return false;
 
-	return task_fits_capacity(p, capacity);
+	return task_fits_cpu(p, cpu);
 }
 
 struct find_best_target_env {
@@ -8079,9 +8079,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			 * cpu is idle, skip this check.
 			 */
 			new_util = max(min_util, new_util);
-			if (!(prefer_idle && idle_cpu(i))
-				&& new_util > capacity_orig)
-				continue;
 
 			/*
 			 * Pre-compute the maximum possible capacity we expect
