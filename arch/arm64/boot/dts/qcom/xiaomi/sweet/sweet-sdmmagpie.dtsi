@@ -81,6 +81,7 @@ And public attribution of xiaomi platforms(like F3 and so and)
 		mi,pd-bus-curr-max = <6100>;
 		mi,pd-bus-curr-compensate = <300>;
 		mi,cp-sec-enable;
+		mi,pd-power-max = <67>; /*charge power max : 67W */
 	};
 
 	simtray {
@@ -651,6 +652,7 @@ And public attribution of xiaomi platforms(like F3 and so and)
 	mi,pd_max_curr_limit = <6200000>;
 	mi,limit_pd_unverified_pps_vbus = <1>;
 	mi,pd_unverified_pps_max_vbus_limit = <9500000>;
+	mi,pd-power-max = <67>; /*charge power max : 67W */
 };
 
 &pm6150_gpios {
