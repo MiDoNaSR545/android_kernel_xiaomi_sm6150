@@ -411,8 +411,7 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 	if (unlikely(!sysctl_sched_use_walt_cpu_util))
 		return;
 
-	if (sg_policy->tunables->pl && pl > *util)
-		*util = (*util + pl) / 2;
+	*util = (*util + pl) / 2;
 }
 
 static void sugov_update_single(struct update_util_data *hook, u64 time,
@@ -424,7 +423,7 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	unsigned long util, max;
 	unsigned int next_f;
 
-	if (!sg_policy->tunables->pl && flags & SCHED_CPUFREQ_PL)
+	if (flags & SCHED_CPUFREQ_PL)
 		return;
 
 	flags &= ~SCHED_CPUFREQ_RT_DL;
@@ -519,7 +518,7 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 	unsigned long util, max;
 	unsigned int next_f;
 
-	if (!sg_policy->tunables->pl && flags & SCHED_CPUFREQ_PL)
+	if (flags & SCHED_CPUFREQ_PL)
 		return;
 
 	sugov_get_util(&util, &max, sg_cpu->cpu, time);
