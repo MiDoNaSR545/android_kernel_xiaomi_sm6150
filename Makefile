@@ -740,6 +740,8 @@ ARCH_AFLAGS :=
 ARCH_CFLAGS :=
 include arch/$(SRCARCH)/Makefile
 
+OPT_FLAGS := -O3 -march=armv8.2-a+dotprod -mcpu=cortex-a55+crypto+crc -mtune=cortex-a55
+
 KBUILD_CFLAGS	+= $(call cc-option,-fno-delete-null-pointer-checks,)
 KBUILD_CFLAGS	+= $(call cc-disable-warning,frame-address,)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, format-truncation)
@@ -752,18 +754,18 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, default-const-init-field-unsafe)
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS   += -Os
 else
-KBUILD_CFLAGS   += -O3
-ifeq ($(cc-name),gcc)
-KBUILD_CFLAGS	+= -mcpu=cortex-a76+crc+crypto -mtune=cortex-a76 -march=armv8.2-a+crc+crypto+dotprod
-endif
-ifeq ($(cc-name),clang)
-KBUILD_CFLAGS	+= -mcpu=cortex-a76+crc+crypto -mtune=cortex-a76 -march=armv8.2-a+crc+crypto+dotprod
-endif
 ifdef CONFIG_INLINE_OPTIMIZATION
 KBUILD_CFLAGS	+= -mllvm -inline-threshold=2000
 KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=3000
 KBUILD_CFLAGS   += -mllvm -unroll-threshold=1200
 KBUILD_LDFLAGS  += --plugin-opt=-import-instr-limit=40
+endif
+KBUILD_CFLAGS	+= $(OPT_FLAGS)
+KBUILD_AFLAGS   += $(OPT_FLAGS)
+ifdef CONFIG_LTO_CLANG
+KBUILD_LDFLAGS += --plugin-opt=O3 --strip-debug -march=armv8.2-a+dotprod -mcpu=cortex-a55+crypto+crc -mtune=cortex-a55
+else
+KBUILD_LDFLAGS += $(OPT_FLAGS)
 endif
 endif
 
