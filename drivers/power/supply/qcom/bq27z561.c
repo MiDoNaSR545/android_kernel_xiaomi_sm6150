@@ -3144,13 +3144,12 @@ static int bq_fg_probe(struct i2c_client *client,
 	bq_dbg(PR_OEM, "bq fuel read battery_id statu = %d\n",status);
 	if (bq->chip_id == 2)
 		is_std_battery = false;
-    fg_get_manufacture_data(bq);
-	fg_set_fastcharge_mode(bq, false);
 
 	mutex_init(&bq->i2c_rw_lock);
 	mutex_init(&bq->data_lock);
 	device_init_wakeup(bq->dev, 1);
-
+    fg_get_manufacture_data(bq);
+	fg_set_fastcharge_mode(bq, false);
 	fg_psy_register(bq);
 	fg_update_status(bq);
 
