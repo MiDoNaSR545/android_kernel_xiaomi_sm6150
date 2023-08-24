@@ -13,7 +13,7 @@
  */
 
 qcom,04890898_xiaomi_K6_SWBN53_5020mah_FG {
-    	/* 04890898_xiaomi_K6_SWBN53_5020mah_FG_averaged_MasterSlave_Oct28th2020 */
+	/* 04890898_xiaomi_K6_SWBN53_5020mah_FG_averaged_MasterSlave_Oct28th2020 */
 	qcom,max-voltage-uv = <4450000>;
 	qcom,ffc-max-voltage-uv = <4470000>;
 	qcom,fg-cc-cv-threshold-uv = <4440000>;
