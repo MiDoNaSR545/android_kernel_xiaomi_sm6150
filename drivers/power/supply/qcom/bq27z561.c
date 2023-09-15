@@ -41,10 +41,7 @@ enum print_reason {
 	PR_DEBUG	= BIT(3),
 };
 bool is_std_battery = true;
-static int debug_mask = PR_OEM;
-module_param_named(
-	debug_mask, debug_mask, int, 0600
-);
+#define debug_mask PR_INTERRUPT
 
 #define 	   MTK_BAT_ID_MAX	2
 static char* battery_name[MTK_BAT_ID_MAX+1] = {"Sunwoda_4V45_5000mAh", "NVT_4V45_5000mAh","BATTERY_NOT_DEFAULT"};
