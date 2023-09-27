@@ -54,7 +54,7 @@ AFLAGS_aes-ce.o		:= -DINTERLEAVE=4
 AFLAGS_aes-neon.o	:= -DINTERLEAVE=4
 
 ifeq ($(cc-name),clang)
-ccflags-y += -mcpu=cortex-a76 -mtune=cortex-a76+crc+crypto
+ccflags-y += -mcpu=cortex-a76+crc+crypto -mtune=cortex-a76
 else ifeq ($(cc-name),gcc)
 ccflags-y += -mtune=cortex-a76.cortex-a55 -march=armv8-a+crc+crypto
 endif
