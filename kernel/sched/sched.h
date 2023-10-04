@@ -584,9 +584,6 @@ struct cfs_rq {
 	u64			zero_vruntime;
 	unsigned int		sum_shift;
 
-#ifndef CONFIG_64BIT
-	u64 min_vruntime_copy;
-#endif
 
 	struct rb_root_cached tasks_timeline;
 
