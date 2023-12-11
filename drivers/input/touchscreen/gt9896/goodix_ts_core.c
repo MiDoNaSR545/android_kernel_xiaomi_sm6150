@@ -3,7 +3,7 @@
   * Core layer of touchdriver architecture.
   *
   * Copyright (C) 2019 - 2020 Goodix, Inc.
- * Copyright (C) 2021 XiaoMi, Inc.
+  * Copyright (C) 2021 XiaoMi, Inc.
   *
   * This program is free software; you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -2164,7 +2164,11 @@ static void goodix_power_supply_work(struct work_struct *work)
 		ts_err("unsupport charger state %d", cur_chgr.intval);
 		break;
 	}
+<<<<<<< HEAD
 out:
+=======
+out: 
+>>>>>>> 89b5a0660a58 (drivers: input: touchscreen: import gt9896 changes from sweet_k6a)
 	pm_relax(ts_dev->dev);
 }
 
@@ -2673,6 +2677,37 @@ out:
 
 static const struct file_operations gtp_data_dump_ops = {
 	.read = goodix_data_dump_read,
+};
+#define TOUCH_OS_TEST    "ctp_openshort_test"
+#define TOUCH_PROC_DIR      "touchscreen"
+#define TOUCH_OS_LOCKDOWN	"lockdown_info"
+
+#define SELF_TEST_NG	0
+#define SELF_TEST_OK	1
+struct proc_dir_entry *goodix_touch_proc_dir;
+EXPORT_SYMBOL(goodix_touch_proc_dir);
+static ssize_t gtp_selftest_read(struct file *file, char __user *buf,
+			size_t count, loff_t *pos)
+{
+	int retval = 0;
+	int ret;
+	char temp_buf[256] = {0};
+
+	retval = goodix_short_open_test();
+	if (2 != retval)
+		ret = SELF_TEST_NG;
+	else
+		ret = SELF_TEST_OK;
+
+	snprintf(temp_buf, 256, "result=%d\n", ret);
+
+	return simple_read_from_buffer(buf, count, pos, temp_buf, strlen(temp_buf));
+}
+
+static const struct file_operations gtp_openshort_ops = {
+	.read = gtp_selftest_read,
+	.open  = simple_open,
+	.owner = THIS_MODULE,
 };
 
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
@@ -3264,6 +3299,11 @@ static int goodix_ts_probe(struct platform_device *pdev)
 		debugfs_create_file("switch_state", 0660, core_data->debugfs, core_data,
 					&tpdbg_operations);
 	}
+	//for WT factory
+	goodix_touch_proc_dir = proc_mkdir(TOUCH_PROC_DIR, NULL);
+	proc_create_data(TOUCH_OS_TEST , 0777, goodix_touch_proc_dir, &gtp_openshort_ops, core_data);
+	proc_create_data(TOUCH_OS_LOCKDOWN, 0777, goodix_touch_proc_dir, &goodix_lockdown_info_ops, core_data);
+
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 	core_data->gtp_tp_class = get_xiaomi_touch_class();
 	if (!core_data->gtp_tp_class) {
