@@ -835,6 +835,8 @@ KBUILD_CFLAGS += $(call cc-option, -Wno-sometimes-uninitialized)
 KBUILD_CFLAGS += $(call cc-option, -Wno-pointer-to-int-cast)
 KBUILD_CFLAGS += $(call cc-option, -Wno-void-pointer-to-int-cast)
 
+#Enable fast FMA optimizations
+KBUILD_CFLAGS   += -ffp-contract=fast
 # Enable hot cold split optimization
 KBUILD_CFLAGS	+= -mllvm -hot-cold-split=true
 # Enable MLGO optimizations for register allocation
