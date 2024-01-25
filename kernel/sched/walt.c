@@ -3077,28 +3077,6 @@ void walt_map_freq_to_load(void)
 	}
 }
 
-static void walt_update_coloc_boost_load(void)
-{
-	struct related_thread_group *grp;
-	struct sched_cluster *cluster;
-
-	if (!sysctl_sched_little_cluster_coloc_fmin_khz ||
-			sched_boost() == CONSERVATIVE_BOOST)
-		return;
-
-	grp = lookup_related_thread_group(DEFAULT_CGROUP_COLOC_ID);
-	if (!grp || !grp->preferred_cluster ||
-			is_min_capacity_cluster(grp->preferred_cluster))
-		return;
-
-	for_each_sched_cluster(cluster) {
-		if (is_min_capacity_cluster(cluster)) {
-			cluster->coloc_boost_load = coloc_boost_load;
-			break;
-		}
-	}
-}
-
 int sched_little_cluster_coloc_fmin_khz_handler(struct ctl_table *table,
 				int write, void __user *buffer, size_t *lenp,
 				loff_t *ppos)
@@ -3168,9 +3146,6 @@ void walt_irq_work(struct irq_work *irq_work)
 
 		raw_spin_unlock(&cluster->load_lock);
 	}
-
-	if (total_grp_load)
-		walt_update_coloc_boost_load();
 
 	for_each_sched_cluster(cluster) {
 		cpumask_t cluster_online_cpus;
