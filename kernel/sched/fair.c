@@ -9658,7 +9658,7 @@ static int migrate_degrades_locality(struct task_struct *p, struct lb_env *env)
 		return 0;
 
 	/* Leaving a core idle is often worse than degrading locality. */
-	if (env->idle != CPU_NOT_IDLE)
+	if (env->idle)
 		return -1;
 
 	if (numa_group) {
@@ -9778,7 +9778,7 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	if (tsk_cache_hot == -1)
 		tsk_cache_hot = task_hot(p, env);
 
-	if (env->idle != CPU_NOT_IDLE || tsk_cache_hot <= 0 ||
+	if (env->idle || tsk_cache_hot <= 0 ||
 	    env->sd->nr_balance_failed > env->sd->cache_nice_tries) {
 		if (tsk_cache_hot == 1) {
 			schedstat_inc(env->sd->lb_hot_gained[env->idle]);
@@ -9878,7 +9878,7 @@ redo:
 		 * We don't want to steal all, otherwise we may be treated likewise,
 		 * which could at worst lead to a livelock crash.
 		 */
-		if (env->idle != CPU_NOT_IDLE && env->src_rq->nr_running <= 1)
+		if (env->idle && env->src_rq->nr_running <= 1)
 			break;
 
 		p = list_last_entry(tasks, struct task_struct, se.group_node);
@@ -10484,7 +10484,7 @@ group_is_overloaded(struct lb_env *env, struct sg_lb_stats *sgs)
 		return false;
 
 #ifdef CONFIG_SCHED_WALT
-	if (env->idle != CPU_NOT_IDLE && walt_rotation_enabled)
+	if (env->idle && walt_rotation_enabled)
 		return true;
 #endif
 
@@ -10673,7 +10673,7 @@ asym_packing:
 		return true;
 
 	/* No ASYM_PACKING if target cpu is already busy */
-	if (env->idle == CPU_NOT_IDLE)
+	if (env->idle)
 		return true;
 	/*
 	 * ASYM_PACKING needs to move all the work to the highest
@@ -10926,7 +10926,7 @@ static int check_asym_packing(struct lb_env *env, struct sd_lb_stats *sds)
 	if (!(env->sd->flags & SD_ASYM_PACKING))
 		return 0;
 
-	if (env->idle == CPU_NOT_IDLE)
+	if (env->idle)
 		return 0;
 
 	if (!sds->busiest)
@@ -11147,7 +11147,7 @@ static inline void calculate_imbalance(struct lb_env *env, struct sd_lb_stats *s
 		 */
 		if (busiest->group_type == group_overloaded &&
 			local->group_type <= group_misfit_task &&
-			env->idle != CPU_NOT_IDLE) {
+			env->idle) {
 			env->imbalance = busiest->load_per_task;
 			return;
 		}
@@ -11234,7 +11234,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	 * When dst_cpu is idle, prevent SMP nice and/or asymmetric group
 	 * capacities from resulting in underutilization due to avg_load.
 	 */
-	if (env->idle != CPU_NOT_IDLE && group_has_capacity(env, local) &&
+	if (env->idle && group_has_capacity(env, local) &&
 	    busiest->group_no_capacity)
 		goto force_balance;
 
@@ -11414,7 +11414,7 @@ asym_active_balance(struct lb_env *env)
 	 * lower priority CPUs in order to pack all tasks in the
 	 * highest priority CPUs.
 	 */
-	return env->idle != CPU_NOT_IDLE && (env->sd->flags & SD_ASYM_PACKING) &&
+	return env->idle && (env->sd->flags & SD_ASYM_PACKING) &&
 	       sched_asym_prefer(env->dst_cpu, env->src_cpu);
 }
 
@@ -11426,7 +11426,7 @@ voluntary_active_balance(struct lb_env *env)
 	if (asym_active_balance(env))
 		return 1;
 
-	if ((env->idle != CPU_NOT_IDLE) &&
+	if ((env->idle) &&
 		(capacity_of(env->src_cpu) < capacity_of(env->dst_cpu)) &&
 	    ((capacity_orig_of(env->src_cpu) < capacity_orig_of(env->dst_cpu))) &&
 				env->src_rq->cfs.h_nr_running == 1 &&
@@ -11435,8 +11435,7 @@ voluntary_active_balance(struct lb_env *env)
 			return 1;
 	}
 
-	if (env->idle != CPU_NOT_IDLE &&
-			env->src_grp_type == group_misfit_task)
+	if (env->idle && env->src_grp_type == group_misfit_task)
 		return 1;
 
 	if (env->src_grp_type == group_overloaded &&
@@ -12537,8 +12536,8 @@ static void rebalance_domains(struct rq *rq, enum cpu_idle_type idle)
 				 * env->dst_cpu, so we can't know our idle
 				 * state even if we migrated tasks. Update it.
 				 */
-				idle = idle_cpu(cpu) ? CPU_IDLE : CPU_NOT_IDLE;
-				busy = idle != CPU_IDLE && !sched_idle_cpu(cpu);
+				idle = idle_cpu(cpu);
+				busy = !idle && !sched_idle_cpu(cpu);
 			}
 			sd->last_balance = jiffies;
 			interval = get_sd_balance_interval(sd, busy);
@@ -12778,9 +12777,7 @@ static inline bool nohz_kick_needed(struct rq *rq, bool only_update) { return fa
 static __latent_entropy void run_rebalance_domains(struct softirq_action *h)
 {
 	struct rq *this_rq = this_rq();
-	enum cpu_idle_type idle = this_rq->idle_balance ?
-						CPU_IDLE : CPU_NOT_IDLE;
-
+	enum cpu_idle_type idle = this_rq->idle_balance;
 	/*
 	 * Since core isolation doesn't update nohz.idle_cpus_mask, there
 	 * is a possibility this nohz kicked cpu could be isolated. Hence
