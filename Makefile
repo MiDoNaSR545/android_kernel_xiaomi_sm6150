@@ -956,6 +956,8 @@ lto-clang-flags	:= -flto
 endif
 lto-clang-flags += -fvisibility=hidden
 
+lto-clang-flags += -fsplit-machine-functions
+
 # Limit inlining across translation units to reduce binary size
 KBUILD_LDFLAGS += -mllvm -import-instr-limit=40
 
