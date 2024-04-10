@@ -957,6 +957,8 @@ lto-clang-flags	:= -flto
 endif
 lto-clang-flags += -fvisibility=hidden
 
+lto-clang-flags += -fsplit-machine-functions
+
 KBUILD_LDFLAGS_MODULE += -T scripts/module-lto.lds
 
 # allow disabling only clang LTO where needed
