@@ -74,16 +74,19 @@
 
 int suid_dumpable = 0;
 
-#define LIBPERFMGR_BIN "/vendor/bin/hw/android.hardware.power-service.pixel-libperfmgr"
+#define LIBPERFMGR "/vendor/bin/hw/android.hardware.power-service.xiaomi-libperfmgr"
+#define LIBPERFMGR_BIN "/vendor/bin/hw/android.hardware.power-service.lineage-libperfmgr"
+#define PERF "/vendor/bin/hw/vendor.qti.hardware.perf-hal-service"
+#define PERFD "/vendor/bin/hw/vendor.qti.hardware.perf2-hal-service"
 
-static struct task_struct *libperfmgr_tsk;
-bool task_is_libperfmgr(struct task_struct *p)
+static struct task_struct *powerhal_tsk;
+bool task_is_powerhal(struct task_struct *p)
 {
 	struct task_struct *tsk;
 	bool ret;
 
 	rcu_read_lock();
-	tsk = READ_ONCE(libperfmgr_tsk);
+	tsk = READ_ONCE(powerhal_tsk);
 	ret = tsk && same_thread_group(p, tsk);
 	rcu_read_unlock();
 
@@ -92,8 +95,8 @@ bool task_is_libperfmgr(struct task_struct *p)
 
 void dead_special_task(void)
 {
-	if (unlikely(current == libperfmgr_tsk))
-		WRITE_ONCE(libperfmgr_tsk, NULL);
+	if (unlikely(current == powerhal_tsk))
+		WRITE_ONCE(powerhal_tsk, NULL);
 }
 
 static LIST_HEAD(formats);
@@ -1932,8 +1935,15 @@ static int __do_execve_file(int fd, struct filename *filename,
 
 	if (is_global_init(current->parent)) {
 		android_service_blacklist(filename->name);
-		if (unlikely(!strcmp(filename->name, LIBPERFMGR_BIN)))
-			WRITE_ONCE(libperfmgr_tsk, current);
+		if (unlikely(!strcmp(filename->name, LIBPERFMGR))) {
+			WRITE_ONCE(powerhal_tsk, current);
+                } else if (unlikely(!strcmp(filename->name, LIBPERFMGR_BIN))) {
+                        WRITE_ONCE(powerhal_tsk, current);
+                } else if (unlikely(!strcmp(filename->name, PERF))) {
+                        WRITE_ONCE(powerhal_tsk, current);
+                } else if (unlikely(!strcmp(filename->name, PERFD))) {
+                        WRITE_ONCE(powerhal_tsk, current);
+		}
 		if (unlikely(!strcmp(filename->name, ZYGOTE32_BIN)))
 			zygote32_sig = current->signal;
 		else if (unlikely(!strcmp(filename->name, ZYGOTE64_BIN)))
