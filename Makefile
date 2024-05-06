@@ -951,7 +951,7 @@ endif
 ifdef CONFIG_LTO_CLANG
 ifdef CONFIG_THINLTO
 lto-clang-flags	:= -flto=thin -fsplit-lto-unit -funified-lto
-LDFLAGS		+= --thinlto-cache-dir=.thinlto-cache --thinlto-jobs=$(nproc --all)
+LDFLAGS		+= --thinlto-jobs=$(nproc --all)
 
 # LLVM tunings
 KBUILD_LDFLAGS += -mllvm -inline-threshold=500
