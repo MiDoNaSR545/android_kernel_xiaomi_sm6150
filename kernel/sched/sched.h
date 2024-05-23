@@ -34,6 +34,7 @@
 #include <linux/irq_work.h>
 #include <linux/tick.h>
 #include <linux/slab.h>
+#include <linux/delayacct.h>
 
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
@@ -2095,6 +2096,19 @@ static inline void rq_last_tick_reset(struct rq *rq)
 #ifdef CONFIG_NO_HZ_FULL
 	rq->last_sched_tick = jiffies;
 #endif
+}
+
+static inline void __block_task(struct rq *rq, struct task_struct *p)
+{
+	p->on_rq = 0;
+
+	if (p->sched_contributes_to_load)
+		rq->nr_uninterruptible++;
+
+	if (p->in_iowait) {
+		atomic_inc(&rq->nr_iowait);
+		delayacct_blkio_start();
+	}
 }
 
 extern void activate_task(struct rq *rq, struct task_struct *p, int flags);
