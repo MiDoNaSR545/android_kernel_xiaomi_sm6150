@@ -4803,6 +4803,9 @@ static inline void check_schedstat_required(void)
 
 
 static void
+requeue_delayed_entity(struct sched_entity *se);
+
+static void
 enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 {
 	bool curr = cfs_rq->curr == se;
@@ -5405,8 +5408,10 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 	task_delta = cfs_rq->h_nr_running;
 	idle_task_delta = cfs_rq->idle_h_nr_running;
 	for_each_sched_entity(se) {
-		if (se->on_rq)
-			break;
+                if (se->on_rq) {
+                        SCHED_WARN_ON(se->sched_delayed);
+                        break;
+                }
 		cfs_rq = cfs_rq_of(se);
 		enqueue_entity(cfs_rq, se, ENQUEUE_WAKEUP);
 
@@ -6122,19 +6127,9 @@ requeue_delayed_entity(struct sched_entity *se)
 	SCHED_WARN_ON(!se->sched_delayed);
 	SCHED_WARN_ON(!se->on_rq);
 
-	if (update_entity_lag(cfs_rq, se)) {
-		cfs_rq->nr_queued--;
-		if (se != cfs_rq->curr)
-			__dequeue_entity(cfs_rq, se);
-		place_entity(cfs_rq, se, 0);
-		if (se != cfs_rq->curr)
-			__enqueue_entity(cfs_rq, se);
-		cfs_rq->nr_queued++;
-	}
-
-	update_load_avg(cfs_rq, se, 0);
-	clear_delayed(se);
+	se->sched_delayed = 0;
 }
+
 /*
  * The enqueue_task method is called before nr_running is
  * increased. Here we update the fair scheduling stats and
@@ -6154,6 +6149,11 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 #ifdef CONFIG_SCHED_WALT
 	p->misfit = !task_fits_max(p, rq->cpu);
 #endif
+
+	if (flags & ENQUEUE_DELAYED) {
+		requeue_delayed_entity(se);
+		return;
+	}
 	/*
 	 * The code below (indirectly) updates schedutil which looks at
 	 * the cfs_rq utilization to select a frequency.
@@ -6171,8 +6171,11 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		cpufreq_update_util(rq, SCHED_CPUFREQ_IOWAIT);
 
 	for_each_sched_entity(se) {
-		if (se->on_rq)
+		if (se->on_rq) {
+			if (se->sched_delayed)
+				requeue_delayed_entity(se);
 			break;
+		}
 		cfs_rq = cfs_rq_of(se);
 
 		/*
