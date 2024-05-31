@@ -4899,16 +4899,17 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	if (flags & DEQUEUE_DELAYED) {
 		SCHED_WARN_ON(!se->sched_delayed);
 	} else {
+		bool delay = sleep;
 		/*
 		 * DELAY_DEQUEUE relies on spurious wakeups, special task
 		 * states must not suffer spurious wakeups, excempt them.
 		 */
 		if (flags & DEQUEUE_SPECIAL)
-			sleep = false;
+			delay = false;
 
-		SCHED_WARN_ON(sleep && se->sched_delayed);
+		SCHED_WARN_ON(delay && se->sched_delayed);
 
-		if (sched_feat(DELAY_DEQUEUE) && sleep &&
+		if (sched_feat(DELAY_DEQUEUE) && delay &&
 		    !entity_eligible(cfs_rq, se)) {
 			if (cfs_rq->next == se)
 				cfs_rq->next = NULL;
@@ -4934,6 +4935,11 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	clear_buddies(cfs_rq, se);
 
 	update_entity_lag(cfs_rq, se);
+	if (sched_feat(PLACE_REL_DEADLINE) && !sleep) {
+		se->deadline -= se->vruntime;
+		se->rel_deadline = 1;
+	}
+
 	if (se != cfs_rq->curr)
 		__dequeue_entity(cfs_rq, se);
 	se->on_rq = 0;
@@ -13190,6 +13196,7 @@ static void switched_from_fair(struct rq *rq, struct task_struct *p)
 	if (p->se.sched_delayed) {
 		dequeue_task(rq, p, DEQUEUE_NOCLOCK | DEQUEUE_SLEEP);
 		p->se.sched_delayed = 0;
+		p->se.rel_deadline = 0;
 		if (sched_feat(DELAY_ZERO) && p->se.vlag > 0)
 			p->se.vlag = 0;
 	}
