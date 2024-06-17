@@ -101,10 +101,6 @@ bool cass_cpu_better(const struct cass_cpu_cand *a,
 	if (cass_cmp(b->util, a->util))
 		goto done;
 
-	/* Prefer the CPU that is idle (only relevant for uclamped tasks) */
-	if (cass_cmp(!!a->exit_lat, !!b->exit_lat))
-		goto done;
-
 	/* Prefer the current CPU for sync wakes */
 	if (sync && (cass_eq(a->cpu, this_cpu) || !cass_cmp(b->cpu, this_cpu)))
 		goto done;
@@ -142,11 +138,9 @@ static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync, bool rt
 	int cidx = 0, cpu;
 
 	/*
-	 * Get the utilization and uclamp minimum threshold for this task. Note
-	 * that RT tasks don't have per-entity load tracking.
+	 * Get the utilization for this task. Note that RT tasks don't have per-entity load tracking.
 	 */
 	p_util = rt ? 0 : task_util_est(p);
-	uc_min = uclamp_eff_value(p, UCLAMP_MIN);
 
 	/*
 	 * Find the best CPU to wake @p on. Although idle_get_state() requires
@@ -171,10 +165,6 @@ static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync, bool rt
 		/* Get the _current_, throttled maximum capacity of this CPU */
 		curr->cap_max = curr->cap_orig - thermal_load_avg(rq);
 
-		/* Prefer the CPU that meets the uclamp minimum requirement */
-		if (curr->cap_max < uc_min && best->cap_max >= uc_min)
-			continue;
-
 		/*
 		 * Check if this CPU is idle or only has SCHED_IDLE tasks. For
 		 * sync wakes, treat the current CPU as idle if @current is the
@@ -182,16 +172,10 @@ static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync, bool rt
 		 */
 		if ((sync && cpu == this_cpu && rq->nr_running == 1) ||
 		    available_idle_cpu(cpu) || sched_idle_cpu(cpu)) {
-			/*
-			 * A non-idle candidate may be better when @p is uclamp
-			 * boosted. Otherwise, always prefer idle candidates.
-			 */
-			if (!uc_min) {
-				/* Discard any previous non-idle candidate */
-				if (!has_idle)
-					best = curr;
-				has_idle = true;
-			}
+			/* Discard any previous non-idle candidate */
+                        if (!has_idle)
+				 best = curr;
+                        has_idle = true;
 
 			/* Nonzero exit latency indicates this CPU is idle */
 			curr->exit_lat = 1;
