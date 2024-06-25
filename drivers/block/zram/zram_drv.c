@@ -1143,6 +1143,12 @@ static ssize_t bd_stat_show(struct device *dev,
 
 	return ret;
 }
+
+static ssize_t bd_stat_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	return len;
+}
 #endif
 
 static ssize_t debug_stat_show(struct device *dev,
