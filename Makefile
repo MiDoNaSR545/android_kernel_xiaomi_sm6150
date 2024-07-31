@@ -969,7 +969,7 @@ KBUILD_CFLAGS	+= -mllvm -unroll-threshold=1200
 lto-clang-flags += -fvisibility=hidden
 
 # Limit inlining across translation units to reduce binary size
-LD_FLAGS_LTO_CLANG := -mllvm -import-instr-limit=5
+LD_FLAGS_LTO_CLANG := -mllvm -import-instr-limit=40
 
 KBUILD_LDFLAGS += $(LD_FLAGS_LTO_CLANG)
 KBUILD_LDFLAGS_MODULE += $(LD_FLAGS_LTO_CLANG)
