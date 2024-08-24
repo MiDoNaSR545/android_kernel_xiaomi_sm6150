@@ -352,7 +352,7 @@ int proc_dointvec_wrapper(struct ctl_table *table, int write, void *buffer,
 
 static struct ctl_table kern_table[] = {
 	{
-		.procname	= "sched_child_runs_first",
+		.procname	= "sched_child_runs_first_alt",
 		.data		= &sysctl_sched_child_runs_first,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -379,14 +379,14 @@ static struct ctl_table kern_table[] = {
 #endif
 #ifdef CONFIG_SCHED_WALT
 	{
-		.procname       = "sched_cpu_high_irqload",
+		.procname       = "sched_cpu_high_irqload_alt",
 		.data           = &sysctl_sched_cpu_high_irqload,
 		.maxlen         = sizeof(unsigned int),
 		.mode           = 0644,
 		.proc_handler   = proc_dointvec,
 	},
 	{
-		.procname	= "sched_group_upmigrate",
+		.procname	= "sched_group_upmigrate_alt",
 		.data		= &sysctl_sched_group_upmigrate_pct,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -394,7 +394,7 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &sysctl_sched_group_downmigrate_pct,
 	},
 	{
-		.procname	= "sched_group_downmigrate",
+		.procname	= "sched_group_downmigrate_alt",
 		.data		= &sysctl_sched_group_downmigrate_pct,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -414,7 +414,7 @@ static struct ctl_table kern_table[] = {
 	},
 #endif
 	{
-		.procname	= "sched_many_wakeup_threshold",
+		.procname	= "sched_many_wakeup_threshold_alt",
 		.data		= &sysctl_sched_many_wakeup_threshold,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -423,7 +423,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one_thousand,
 	},
 	{
-		.procname	= "sched_walt_rotate_big_tasks",
+		.procname	= "sched_walt_rotate_big_tasks_alt",
 		.data		= &sysctl_sched_walt_rotate_big_tasks,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -432,7 +432,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one,
 	},
 	{
-		.procname	= "sched_min_task_util_for_boost",
+		.procname	= "sched_min_task_util_for_boost_alt",
 		.data		= &sysctl_sched_min_task_util_for_boost,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -441,7 +441,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one_thousand,
 	},
 	{
-		.procname	= "sched_min_task_util_for_colocation",
+		.procname	= "sched_min_task_util_for_colocation_alt",
 		.data		= &sysctl_sched_min_task_util_for_colocation,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -450,7 +450,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &one_thousand,
 	},
 	{
-		.procname       = "sched_asym_cap_sibling_freq_match_pct",
+		.procname       = "sched_asym_cap_sibling_freq_match_pct_alt",
 		.data           = &sysctl_sched_asym_cap_sibling_freq_match_pct,
 		.maxlen         = sizeof(unsigned int),
 		.mode           = 0644,
@@ -460,14 +460,14 @@ static struct ctl_table kern_table[] = {
 	},
 #endif
 	{
-		.procname	= "sched_upmigrate",
+		.procname	= "sched_upmigrate_alt",
 		.data		= &sysctl_sched_capacity_margin_up,
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
 		.mode		= 0444,
 		.proc_handler	= sched_updown_migrate_handler,
 	},
 	{
-		.procname	= "sched_downmigrate",
+		.procname	= "sched_downmigrate_alt",
 		.data		= &sysctl_sched_capacity_margin_down,
 		.maxlen		= sizeof(unsigned int) * MAX_MARGIN_LEVELS,
 		.mode		= 0444,
@@ -483,7 +483,7 @@ static struct ctl_table kern_table[] = {
 		.extra2         = &one,
 	},
 	{
-		.procname	= "sched_min_granularity_ns",
+		.procname	= "sched_min_granularity_ns_alt",
 		.data		= &sysctl_sched_min_granularity,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -492,7 +492,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &max_sched_granularity_ns,
 	},
 	{
-		.procname	= "sched_latency_ns",
+		.procname	= "sched_latency_ns_alt",
 		.data		= &sysctl_sched_latency,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -501,21 +501,21 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &max_sched_granularity_ns,
 	},
 	{
-		.procname	= "sched_sync_hint_enable",
+		.procname	= "sched_sync_hint_enable_alt",
 		.data		= &sysctl_sched_sync_hint_enable,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
 	{
-		.procname	= "sched_cstate_aware",
+		.procname	= "sched_cstate_aware_alt",
 		.data		= &sysctl_sched_cstate_aware,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
 	{
-		.procname	= "sched_wakeup_granularity_ns",
+		.procname	= "sched_wakeup_granularity_ns_alt",
 		.data		= &sysctl_sched_wakeup_granularity,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -525,7 +525,7 @@ static struct ctl_table kern_table[] = {
 	},
 #ifdef CONFIG_SMP
 	{
-		.procname	= "sched_tunable_scaling",
+		.procname	= "sched_tunable_scaling_alt",
 		.data		= &sysctl_sched_tunable_scaling,
 		.maxlen		= sizeof(enum sched_tunable_scaling),
 		.mode		= 0644,
@@ -534,7 +534,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &max_sched_tunable_scaling,
 	},
 	{
-		.procname	= "sched_migration_cost_ns",
+		.procname	= "sched_migration_cost_ns_alt",
 		.data		= &sysctl_sched_migration_cost,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -542,14 +542,14 @@ static struct ctl_table kern_table[] = {
 	},
 #ifdef CONFIG_SCHED_DEBUG
 	{
-		.procname	= "sched_nr_migrate",
+		.procname	= "sched_nr_migrate_alt",
 		.data		= &sysctl_sched_nr_migrate,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
 	{
-		.procname	= "sched_time_avg_ms",
+		.procname	= "sched_time_avg_ms_alt",
 		.data		= &sysctl_sched_time_avg,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -558,7 +558,7 @@ static struct ctl_table kern_table[] = {
 	},
 #ifdef CONFIG_SCHEDSTATS
 	{
-		.procname	= "sched_schedstats",
+		.procname	= "sched_schedstats_alt",
 		.data		= NULL,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -610,7 +610,7 @@ static struct ctl_table kern_table[] = {
 #endif /* CONFIG_NUMA_BALANCING */
 #endif /* CONFIG_SCHED_DEBUG */
 	{
-		.procname	= "sched_rt_period_us",
+		.procname	= "sched_rt_period_us_alt",
 		.data		= &sysctl_sched_rt_period,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -619,7 +619,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &int_max,
 	},
 	{
-		.procname	= "sched_rt_runtime_us",
+		.procname	= "sched_rt_runtime_us_alt",
 		.data		= &sysctl_sched_rt_runtime,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
@@ -628,7 +628,7 @@ static struct ctl_table kern_table[] = {
 		.extra2		= &int_max,
 	},
 	{
-		.procname	= "sched_rr_timeslice_ms",
+		.procname	= "sched_rr_timeslice_ms_alt",
 		.data		= &sysctl_sched_rr_timeslice,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
@@ -636,7 +636,7 @@ static struct ctl_table kern_table[] = {
 	},
 #ifdef CONFIG_SCHED_AUTOGROUP
 	{
-		.procname	= "sched_autogroup_enabled",
+		.procname	= "sched_autogroup_enabled_alt",
 		.data		= &sysctl_sched_autogroup_enabled,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
@@ -647,7 +647,7 @@ static struct ctl_table kern_table[] = {
 #endif
 #ifdef CONFIG_CFS_BANDWIDTH
 	{
-		.procname	= "sched_cfs_bandwidth_slice_us",
+		.procname	= "sched_cfs_bandwidth_slice_us_alt",
 		.data		= &sysctl_sched_cfs_bandwidth_slice,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
