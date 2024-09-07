@@ -740,8 +740,6 @@ ARCH_AFLAGS :=
 ARCH_CFLAGS :=
 include arch/$(SRCARCH)/Makefile
 
-OPT_FLAGS := -O3 -march=armv8.2-a+dotprod -mcpu=cortex-a55+crypto+crc -mtune=cortex-a55
-
 KBUILD_CFLAGS	+= $(call cc-disable-warning,frame-address,)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, format-truncation)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, format-overflow)
@@ -752,19 +750,24 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, default-const-init-field-unsafe)
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS   += -Os
+KBUILD_AFLAGS   += -Os
+KBUILD_LDFLAGS  += -Os
 else
+ifeq ($(cc-name),clang)
+KBUILD_CFLAGS   += -mllvm -hot-cold-split=true
+KBUILD_CFLAGS   += -mcpu=cortex-a55 -mtune=cortex-a55
+KBUILD_CFLAGS   += -O3 -march=armv8.2-a+lse+crypto+dotprod+crc --cuda-path=/dev/null
+KBUILD_AFLAGS   += -O3 -march=armv8.2-a+lse+crypto+dotprod+crc
+KBUILD_LDFLAGS  += -O3 --plugin-opt=O3
+else
+KBUILD_CFLAGS   += -O2
+KBUILD_AFLAGS   += -O2
+KBUILD_LDFLAGS  += -O2
 ifdef CONFIG_INLINE_OPTIMIZATION
-KBUILD_CFLAGS	+= -mllvm -inline-threshold=2000
-KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=3000
-KBUILD_CFLAGS   += -mllvm -unroll-threshold=1200
-KBUILD_LDFLAGS  += --plugin-opt=-import-instr-limit=40
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=2500
+KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=2000
+KBUILD_CFLAGS	+= -mllvm -unroll-threshold=1200
 endif
-KBUILD_CFLAGS	+= $(OPT_FLAGS)
-KBUILD_AFLAGS   += $(OPT_FLAGS)
-ifdef CONFIG_LTO_CLANG
-KBUILD_LDFLAGS += --plugin-opt=O3 --strip-debug -march=armv8.2-a+dotprod -mcpu=cortex-a55+crypto+crc -mtune=cortex-a55
-else
-KBUILD_LDFLAGS += $(OPT_FLAGS)
 endif
 endif
 
@@ -829,6 +832,24 @@ endif
 KBUILD_CFLAGS += $(stackp-flag)
 
 ifeq ($(cc-name),clang)
+ifdef CONFIG_POLLY_CLANG
+KBUILD_CFLAGS	+= -mllvm -polly \
+		   -mllvm -polly-ast-use-context \
+		   -mllvm -polly-invariant-load-hoisting \
+		   -mllvm -polly-loopfusion-greedy=1 \
+		   -mllvm -polly-postopts=1 \
+		   -mllvm -polly-reschedule=1 \
+		   -mllvm -polly-run-inliner \
+		   -mllvm -polly-vectorizer=stripmine
+# Polly may optimise loops with dead paths beyound what the linker
+# can understand. This may negate the effect of the linker's DCE
+# so we tell Polly to perfom proven DCE on the loops it optimises
+# in order to preserve the overall effect of the linker's DCE.
+ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
+KBUILD_CFLAGS	+= -mllvm -polly-run-dce
+endif
+endif
+
 KBUILD_CFLAGS += $(call cc-disable-warning, format-invalid-specifier)
 KBUILD_CFLAGS += $(call cc-disable-warning, gnu)
 KBUILD_CFLAGS += $(call cc-disable-warning, duplicate-decl-specifier)
@@ -838,13 +859,7 @@ KBUILD_CFLAGS += $(call cc-option, -mllvm -disable-struct-const-merge)
 KBUILD_CFLAGS += $(call cc-option, -Wno-sometimes-uninitialized)
 KBUILD_CFLAGS += $(call cc-option, -Wno-pointer-to-int-cast)
 KBUILD_CFLAGS += $(call cc-option, -Wno-void-pointer-to-int-cast)
-
-# Enable hot cold split optimization
-KBUILD_CFLAGS	+= -mllvm -hot-cold-split=true
-
-# Quiet clang warning: comparison of unsigned expression < 0 is always false
 KBUILD_CFLAGS += $(call cc-disable-warning, tautological-compare)
-
 KBUILD_CFLAGS += $(call cc-option, -fcatch-undefined-behavior)
 endif
 
