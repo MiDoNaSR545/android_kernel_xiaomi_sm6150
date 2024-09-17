@@ -7231,15 +7231,6 @@ static inline bool task_fits_capacity(struct task_struct *p,
 static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
-	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity.val;
-
-	if (capacity == max_capacity)
-		return true;
-
-	if ((task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
-			schedtune_task_boost(p) > 0) &&
-			is_min_capacity_cpu(cpu))
-		return false;
 
 	return task_fits_capacity(p, capacity, cpu);
 }
