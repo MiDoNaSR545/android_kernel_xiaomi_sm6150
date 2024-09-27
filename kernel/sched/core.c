@@ -2481,14 +2481,14 @@ out:
  * The caller (fork, wakeup) owns p->pi_lock, ->cpus_ptr is stable.
  */
 static inline
-int select_task_rq(struct task_struct *p, int cpu, int wake_flags, int sibling_count_hint)
+int select_task_rq(struct task_struct *p, int cpu, int *wake_flags, int sibling_count_hint)
 {
 	bool allow_isolated = (p->flags & PF_KTHREAD);
 
 	lockdep_assert_held(&p->pi_lock);
 
 	if (p->nr_cpus_allowed > 1)
-		cpu = p->sched_class->select_task_rq(p, cpu, wake_flags, sibling_count_hint);
+		cpu = p->sched_class->select_task_rq(p, cpu, *wake_flags, sibling_count_hint);
 	else
 		cpu = cpumask_any(p->cpus_ptr);
 
@@ -3024,6 +3024,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 	int cpu, success = 0;
 
 	preempt_disable();
+
+	wake_flags |= WF_TTWU;
+
 	if (p == current) {
 		/*
 		 * We're waking current, this means 'p->on_rq' and 'task_cpu(p)
@@ -3164,7 +3167,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags,
 
 	walt_try_to_wake_up(p);
 
-	cpu = select_task_rq(p, p->wake_cpu, wake_flags | WF_TTWU, sibling_count_hint);
+	cpu = select_task_rq(p, p->wake_cpu, &wake_flags, sibling_count_hint);
 	if (task_cpu(p) != cpu) {
 		if (p->in_iowait) {
 			delayacct_blkio_end(p);
@@ -3628,6 +3631,7 @@ void wake_up_new_task(struct task_struct *p)
 {
 	struct rq_flags rf;
 	struct rq *rq;
+	int wake_flags = WF_FORK;
 
 	add_new_task_to_grp(p);
 	raw_spin_lock_irqsave(&p->pi_lock, rf.flags);
@@ -3643,7 +3647,7 @@ void wake_up_new_task(struct task_struct *p)
 	 * as we're not fully set-up yet.
 	 */
 	p->recent_used_cpu = task_cpu(p);
-	__set_task_cpu(p, select_task_rq(p, task_cpu(p), WF_FORK, 1));
+	__set_task_cpu(p, select_task_rq(p, task_cpu(p), &wake_flags, 1));
 #endif
 	rq = __task_rq_lock(p, &rf);
 	update_rq_clock(rq);
@@ -3654,7 +3658,7 @@ void wake_up_new_task(struct task_struct *p)
 
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	trace_sched_wakeup_new(p);
-	check_preempt_curr(rq, p, WF_FORK);
+	check_preempt_curr(rq, p, wake_flags);
 #ifdef CONFIG_SMP
 	if (p->sched_class->task_woken) {
 		/*
