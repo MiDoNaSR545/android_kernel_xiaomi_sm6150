@@ -829,10 +829,6 @@ KBUILD_CFLAGS += $(call cc-option, -Wno-void-pointer-to-int-cast)
 
 # Enable hot cold split optimization
 KBUILD_CFLAGS	+= -mllvm -hot-cold-split=true
-# Enable MLGO optimizations for register allocation
-KBUILD_CFLAGS	+= -mllvm -regalloc-enable-advisor=release
-KBUILD_LDFLAGS	+= -mllvm -regalloc-enable-advisor=release
-KBUILD_LDFLAGS	+= -mllvm -enable-ml-inliner=release
 
 # Quiet clang warning: comparison of unsigned expression < 0 is always false
 
