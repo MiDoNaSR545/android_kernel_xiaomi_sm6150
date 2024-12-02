@@ -11573,7 +11573,7 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 		if (rt > env->fbq_type)
 			continue;
 
-		if (!rq->cfs.h_nr_queued)
+		if (!rq->cfs.h_nr_runnable)
 			continue;
 
 		/*
