@@ -581,7 +581,6 @@ struct cfs_rq {
 	unsigned int		h_nr_runnable;     /* SCHED_{NORMAL,BATCH,IDLE} */
 	unsigned int		idle_h_nr_running; /* SCHED_IDLE */
 	unsigned long 		runnable_weight;
-	unsigned int		h_nr_delayed;
 
 	s64			sum_w_vruntime;
 	u64			sum_weight;
