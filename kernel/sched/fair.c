@@ -33,6 +33,7 @@
 #include <linux/mempolicy.h>
 #include <linux/migrate.h>
 #include <linux/task_work.h>
+#include <linux/binfmts.h>
 
 #include <trace/events/sched.h>
 
@@ -701,6 +702,9 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 
 	sched_nr_latency = DIV_ROUND_UP(sysctl_sched_latency,
 					sysctl_sched_min_granularity);
+
+	if (task_is_booster(current))
+		return 0;
 
 #define WRT_SYSCTL(name) \
 	(normalized_sysctl_##name = sysctl_##name / (factor))
