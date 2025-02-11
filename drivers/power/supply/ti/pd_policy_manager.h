@@ -107,11 +107,7 @@ enum pm_state {
 #define TAPER_WITH_IBUS_HYS			60
 #define TAPER_IBUS_THR			450
 
-#ifdef CONFIG_K6_CHARGE
-#define BQ_TAPER_HYS_MV			10
-#else
 #define BQ_TAPER_HYS_MV			30
-#endif
 
 #define BQ_TAPER_DECREASE_STEP_MA			200
 
