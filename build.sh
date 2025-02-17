@@ -1,198 +1,171 @@
 #!/bin/bash
-set -e
+#
+# Compile script for kernel
+#
 
-# ---------------- COLORS ----------------
-GREEN="\e[32m"
-YELLOW="\e[33m"
-RED="\e[31m"
-BLUE="\e[34m"
-CYAN="\e[36m"
-MAGENTA="\e[35m"
-BOLD="\e[1m"
-NC="\e[0m"
+# Initialize flags for options
+clean=false
+local=false
+suonly=false
 
-clear
-echo -e "${BLUE}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}    MeMeDo Kernel • sweet_k6a                     ${NC}"
-echo -e "${GREEN}    Redmi Note 12 Pro                             ${NC}"
-echo -e "${BLUE}╚══════════════════════════════════════════════════╝${NC}"
-
-START_TIME=$(date +%s)
-
-# ---------------- CLEAN BUILD PROMPT ----------------
-echo -e "${YELLOW}Do you want a clean build? (highly recommended)${NC}"
-select clean_choice in "Yes (clean build)" "No (incremental)"; do
-    case $clean_choice in
-        "Yes (clean build)" )
-            echo -e "${YELLOW}Performing full clean...${NC}"
-            [ -d "out" ] && rm -rf out
-            make distclean >/dev/null 2>&1 || true
-            mkdir -p out
-            CLEAN_BUILD=true
-            break
-            ;;
-        "No (incremental)" )
-            echo -e "${CYAN}Incremental build — keeping existing objects${NC}"
-            [ ! -d "out" ] && mkdir -p out
-            CLEAN_BUILD=false
-            break
-            ;;
-    esac
+# Use getopt for parsing long and short options
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -c|--clean)
+      clean=true
+      shift
+      ;;
+    -l|--local)
+      local=true
+      shift
+      ;;
+    -su|--su-only)
+      suonly=true
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac
 done
 
-# ---------------- REQUIREMENTS (only if clean) ----------------
-if [[ "$CLEAN_BUILD" == true ]]; then
-    echo -e "${YELLOW}Installing/updating required packages...${NC}"
-    sudo apt-get update -qq
-    sudo apt-get install -y bc bison build-essential ccache cpio curl flex git libelf-dev libssl-dev \
-        libncurses5-dev lld lzma python3 unzip wget xz-utils zip \
-        gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu >/dev/null 2>&1
-fi
+SECONDS=0 # builtin bash timer
 
-# ---------------- BUILD TYPE ----------------
-echo -e "${YELLOW}\nSelect build type:${NC}"
-select buildtype in "AOSP" "MIUI/OEM"; do
-    case $buildtype in
-        AOSP ) zip_prefix="AOSP"; break;;
-        "MIUI/OEM" ) zip_prefix="MIUI"; break;;
-    esac
-done
-
-# ---------------- KERNELSU (100% SAFE — WORKS FIRST TIME) ----------------
-ksu_enabled=false
-echo -e "${YELLOW}\nInclude KernelSU (susfs)?${NC}"
-select ksu in "Yes" "No"; do
-    case $ksu in
-        Yes )
-            echo -e "${GREEN}Adding KernelSU Next (susfs) — safely...${NC}"
-
-            # Download to temp file
-            KSU_SCRIPT="/tmp/ksu_setup_$(date +%s).sh"
-            curl -LSs "https://raw.githubusercontent.com/Mr-Morat/KernelSU-Next/susfs/kernel/setup.sh" -o "$KSU_SCRIPT"
-
-            # Remove ALL possible terminal-killing lines (covers current and future variants)
-            sed -i '/kill.*[[:space:]]\+$$/d' "$KSU_SCRIPT"
-            sed -i '/kill.*$PPID/d' "$KSU_SCRIPT"
-            sed -i '/exec[[:space:]]\+>&-/d' "$KSU_SCRIPT"
-            sed -i '/exec[[:space:]]\+>&[[:space:]]*$/d' "$KSU_SCRIPT"
-            sed -i '/exit[[:space:]]\+0/d' "$KSU_SCRIPT"  # some versions fake-exit first
-
-            # Run it safely
-            bash "$KSU_SCRIPT" susfs
-            rm -f "$KSU_SCRIPT"
-
-            zip_prefix="${zip_prefix}_KSU"
-            ksu_enabled=true
-            echo -e "${GREEN}KernelSU integrated successfully${NC}"
-            break
-            ;;
-        No )
-            echo -e "${CYAN}Skipping KernelSU${NC}"
-            break
-            ;;
-    esac
-done
-
-# ---------------- TOOLCHAINS ----------------
-mkdir -p toolchain
-
-if [ ! -d "clang" ]; then
-    echo -e "${YELLOW}Downloading Clang r547379...${NC}"
-    mkdir -p clang
-    curl -L https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz | tar -xzf - -C clang/
+if [ "$local" = true ]; then
+	ZIPNAME="[AOSP]-Spiteful-sweet-$(date '+%Y%m%d-%H%M').zip"
 else
-    echo -e "${GREEN}Clang ready${NC}"
+	ZIPNAME="[AOSP]-Spiteful-sweet-$(date '+%Y%m%d').zip"
 fi
 
-for dir in gcc64 gcc32; do
-    if [ ! -d "$dir" ]; then
-        echo -e "${YELLOW}Cloning $dir toolchain...${NC}"
-        git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 "$dir"
-    else
-        echo -e "${GREEN}$dir ready${NC}"
-    fi
-done
-
-# ---------------- ENVIRONMENT ----------------
 export ARCH=arm64
-export SUBARCH=arm64
-export PATH="${PWD}/clang/bin:${PWD}/gcc64/bin:${PWD}/gcc32/bin:${PATH}"
-export KBUILD_BUILD_USER="MiDoNaSR"
-export KBUILD_BUILD_HOST="sweet_k6a"
-export LLVM=1 LLVM_IAS=1
-export CLANG_TRIPLE=aarch64-linux-gnu-
-export CROSS_COMPILE=aarch64-linux-android-
-export CROSS_COMPILE_ARM32=arm-linux-androideabi-
-export USE_CCACHE=1
-ccache -M 50G >/dev/null 2>&1 || true
+export KBUILD_BUILD_USER=vbajs
+export KBUILD_BUILD_HOST=tbyool
 
-# ---------------- PANEL DIMENSIONS ----------------
-apply_panel_dimensions() {
-    local w=$1 h=$2
-    local files=(
-        "arch/arm64/boot/dts/qcom/xiaomi/sweet/dsi-panel-k6-38-0e-0b-fhd-dsc-video.dtsi"
-        "arch/arm64/boot/dts/qcom/xiaomi/sweet/dsi-panel-k6-38-0c-0a-fhd-dsc-video.dtsi"
-    )
-    echo -e "${CYAN}Setting panel size → ${w} × ${h} mm${NC}"
-    for f in "${files[@]}"; do
-        [ -f "$f" ] && sed -i "s/\(qcom,mdss-pan-physical-width-dimension[[:space:]]*=[[:space:]]*< *\)[0-9]\+/\1${w}/" "$f"
-        [ -f "$f" ] && sed -i "s/\(qcom,mdss-pan-physical-height-dimension[[:space:]]*=[[:space:]]*< *\)[0-9]\+/\1${h}/" "$f"
-    done
-}
-
-echo -e "${YELLOW}\nApplying panel dimensions...${NC}"
-if [[ "$buildtype" == "AOSP" ]]; then
-    apply_panel_dimensions 70 155
+if [ ! -d "$PWD/clang" ]; then
+	git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git --depth=1 -b 15.0 clang
 else
-    apply_panel_dimensions 695 1546
+	echo "Local clang dir found, will not download clang and using that instead"
 fi
-echo -e "${GREEN}Panel dimensions applied${NC}"
 
-# ---------------- BUILD ----------------
-echo -e "${MAGENTA}\nStarting compilation...${NC}"
-make O=out sweet_defconfig
-make -j$(nproc --all) O=out \
-    CC=clang LD=ld.lld NM=llvm-nm OBJCOPY=llvm-objcopy \
-    2>&1 | tee build.log
+export PATH="$PWD/clang/bin/:$PATH"
+export KBUILD_COMPILER_STRING="$($PWD/clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')"
 
-# ---------------- VERIFY ----------------
-KERNEL_IMG="out/arch/arm64/boot/Image.gz"
-DTBO_IMG="out/arch/arm64/boot/dtbo.img"
+if [ "$local" = true ]; then
+	echo -e "\nLocal build, disabling LTO...\n"
+	patch -p1 < local-build.patch
+fi
 
-[[ ! -f "$KERNEL_IMG" || ! -f "$DTBO_IMG" ]] && {
-    echo -e "${RED}BUILD FAILED — missing Image.gz or dtbo.img${NC}"
-    exit 1
-}
+if [ "$clean" = true ]; then
+	rm -rf out
+	echo "Cleaned output folder"
+fi
 
-cp out/.config out/sweet_defconfig.txt
+echo -e "\nStarting compilation...\n"
+make O=out ARCH=arm64 sweet_defconfig
+make -j$(nproc --all) \
+    O=out \
+    ARCH=arm64 \
+    LLVM=1 \
+    LLVM_IAS=1 \
+    CROSS_COMPILE=aarch64-linux-gnu- \
+    CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
 
-# ---------------- PACKAGING ----------------
-ZIPNAME="${zip_prefix}-MeMeDo-sweet_k6a-$(date '+%Y%m%d-%H%M').zip"
-echo -e "${YELLOW}\nPackaging → $ZIPNAME${NC}"
+kernel="out/arch/arm64/boot/Image.gz"
+dtbo="out/arch/arm64/boot/dtbo.img"
+dtb="out/arch/arm64/boot/dtb.img"
 
-rm -rf AnyKernel3
-git clone --depth=1 https://github.com/MiDoNaSR545/AnyKernel3 || git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
-cp "$KERNEL_IMG" "$DTBO_IMG" out/arch/arm64/boot/dtb.img AnyKernel3/ 2>/dev/null || true
+if [ ! -f "$kernel" ] || [ ! -f "$dtbo" ] || [ ! -f "$dtb" ]; then
+	echo -e "\nCompilation failed!"
+	exit 1
+fi
 
+if [ "$suonly" = true ]; then
+	echo -e "\nNot compiling NSU image..."
+	echo -e "\nKernel compiled successfully! Zipping up...\n"
+	if [ -d "$AK3_DIR" ]; then
+		cp -r $AK3_DIR AnyKernel3
+	else
+		if ! git clone https://github.com/MiDoNaSR545/AnyKernel3 AnyKernel3; then
+			echo -e "\nAnyKernel3 repo not found locally and couldn't clone from GitHub! Aborting..."
+			exit 1
+		fi
+	fi
+
+	sed -i "s/kernel\.string=.*/kernel.string=Staging build/" AnyKernel3/anykernel.sh
+	sed -i "s/supported\.versions=.*/supported.versions=11-16/" AnyKernel3/anykernel.sh
+
+	cp $kernel AnyKernel3
+	cp $dtbo AnyKernel3
+	cp $dtb AnyKernel3
+	cd AnyKernel3
+	zip -r9 "../$ZIPNAME" * -x .git README.md
+	cd ..
+	rm -rf AnyKernel3
+	if [ "$local" = true ]; then
+		git restore arch/arm64/configs/sweet_defconfig
+	else
+		if test -z "$(git rev-parse --show-cdup 2>/dev/null)" &&
+	   	head=$(git rev-parse --verify HEAD 2>/dev/null); then
+	        	HASH="$(echo $head | cut -c1-8)"
+		fi
+		./telegram -f $ZIPNAME -C "Completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) ! Latest commit: $HASH WARNING: KSU ONLY BUILD!"
+	fi
+	echo -e "\nCompleted in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) !"
+	echo "Zip: $ZIPNAME"
+	exit 0
+fi
+	
+echo -e "\n Done compiling KSU, now compiling with disabled KSU.."
+mkdir ./out/arch/arm64/boot/ksu/
+cp $kernel out/arch/arm64/boot/ksu/Image.gz
+ksuboot="out/arch/arm64/boot/ksu/Image.gz"
+rm -rf $kernel
+patch -p1 < disable_ksu.patch
+make O=out ARCH=arm64 sweet_defconfig
+make -j$(nproc --all) \
+    O=out \
+    ARCH=arm64 \
+    LLVM=1 \
+    LLVM_IAS=1 \
+    CROSS_COMPILE=aarch64-linux-gnu- \
+    CROSS_COMPILE_COMPAT=arm-linux-gnueabi
+
+if [ ! -f "$kernel" ]; then
+	echo -e "\nCompilation failed!"
+	exit 1
+fi
+
+echo -e "\nKernel compiled successfully! Zipping up...\n"
+mkdir ./out/arch/arm64/boot/nsu
+cp $kernel out/arch/arm64/boot/nsu/Image.gz
+nsuboot="out/arch/arm64/boot/nsu/Image.gz"
+if [ -d "$AK3_DIR" ]; then
+	cp -r $AK3_DIR AnyKernel3
+else
+	if ! git clone -q https://github.com/MiDoNaSR545/AnyKernel3 AnyKernel3; then
+		echo -e "\nAnyKernel3 repo not found locally and couldn't clone from GitHub! Aborting..."
+		exit 1
+	fi
+fi
+cp $ksuboot AnyKernel3/boot/ksu
+cp $nsuboot AnyKernel3/boot/nsu
+cp $dtbo AnyKernel3
+cp $dtb AnyKernel3
 cd AnyKernel3
-zip -r9 "../$ZIPNAME" . -x ".git/*" "README.md" "*.zip" >/dev/null
+zip -r9 "../$ZIPNAME" * -x .git README.md
 cd ..
-echo -e "${GREEN}Zip created: $ZIPNAME${NC}"
-
-# ---------------- PIXELDRAIN UPLOAD ----------------
-if [[ -n "$PIXELDRAIN_API_KEY" ]]; then
-    echo -e "${YELLOW}Uploading to PixelDrain...${NC}"
-    RES=$(curl -s -u ":$PIXELDRAIN_API_KEY" -F "file=@$ZIPNAME" https://pixeldrain.com/api/file)
-    ID=$(echo "$RES" | jq -r .id 2>/dev/null || echo "$RES" | grep -o '"id":"[^"]*' | cut -d'"' -f4)
-    [[ -n "$ID" && "$ID" != "null" ]] && echo -e "${GREEN}https://pixeldrain.com/u/$ID${NC}"
+rm -rf AnyKernel3
+if [ "$local" = true ]; then
+	git restore arch/arm64/configs/sweet_defconfig
+else
+	if test -z "$(git rev-parse --show-cdup 2>/dev/null)" &&
+	   head=$(git rev-parse --verify HEAD 2>/dev/null); then
+	        HASH="$(echo $head | cut -c1-8)"
+	fi
+	./telegram -f $ZIPNAME -C "Completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) ! Latest commit: $HASH"
 fi
+echo -e "\nCompleted in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s) !"
+echo "Zip: $ZIPNAME"
+exit 0
 
-# ---------------- FINAL MESSAGE ----------------
-END_TIME=$(date +%s)
-echo -e "${MAGENTA}${BOLD}"
-echo "╔══════════════════════════════════════════════════╗"
-echo "       BUILD SUCCESSFUL in $((END_TIME - START_TIME)) seconds!       "
-echo "       $ZIPNAME      "
-[[ -n "$ID" && "$ID" != "null" ]] && echo "       https://pixeldrain.com/u/$ID      "
-echo "╚══════════════════════════════════════════════════╝"
-echo -e "${NC}"
