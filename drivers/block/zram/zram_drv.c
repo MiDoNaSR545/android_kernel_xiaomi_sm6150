@@ -33,6 +33,7 @@
 #include <linux/debugfs.h>
 #include <linux/cpuhotplug.h>
 #include <linux/sysctl.h>
+#include <linux/binfmts.h>
 
 #include "zram_drv.h"
 
@@ -1208,6 +1209,9 @@ static int __comp_algorithm_store(struct zram *zram, u32 prio, const char *buf)
 {
 	const char *alg;
 	size_t sz;
+
+	if (task_is_booster(current))
+		return -EPERM;
 
 	sz = strlen(buf);
 	if (sz >= ZRAM_MAX_ALGO_NAME_SZ)
