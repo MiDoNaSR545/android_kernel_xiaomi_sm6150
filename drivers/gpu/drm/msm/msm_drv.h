@@ -73,9 +73,6 @@ struct msm_gem_vma;
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
 
-extern atomic_t resume_pending;
-extern wait_queue_head_t resume_wait_q;
-
 struct msm_file_private {
 	/* update the refcount when user driver calls power_ctrl IOCTL */
 	unsigned short enable_refcnt;
@@ -106,7 +103,6 @@ enum msm_mdp_plane_property {
 
 	/* range properties */
 	PLANE_PROP_ZPOS = PLANE_PROP_BLOBCOUNT,
-	PLANE_PROP_FOD,
 	PLANE_PROP_ALPHA,
 	PLANE_PROP_COLOR_FILL,
 	PLANE_PROP_H_DECIMATE,
@@ -583,15 +579,6 @@ struct msm_drm_thread {
 	struct kthread_worker worker;
 };
 
-struct msm_idle {
-	u32 timeout_ms;
-	u32 encoder_mask;
-	u32 active_mask;
-
-	spinlock_t lock;
-	struct delayed_work work;
-};
-
 struct msm_drm_private {
 
 	struct drm_device *dev;
@@ -700,8 +687,6 @@ struct msm_drm_private {
 
 	/* update the flag when msm driver receives shutdown notification */
 	bool shutdown_in_progress;
-
-	struct msm_idle idle;
 };
 
 /* get struct msm_kms * from drm_device * */
