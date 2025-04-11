@@ -18,6 +18,7 @@
 #include <linux/cpu.h>
 #include <linux/cpuidle.h>
 #include <linux/syscalls.h>
+#include <linux/cpuidle.h>
 #include <linux/gfp.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
