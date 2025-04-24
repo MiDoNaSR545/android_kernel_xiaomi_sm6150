@@ -966,6 +966,9 @@ endif
 ifdef CONFIG_LTO_CLANG
 ifdef CONFIG_THINLTO
 lto-clang-flags	:= -flto=thin -fsplit-lto-unit -funified-lto
+
+# LLVM tunings
+KBUILD_LDFLAGS += -mllvm -inline-threshold=500
 else
 lto-clang-flags	:= -flto
 endif
