@@ -78,6 +78,8 @@ int suid_dumpable = 0;
 #define LIBPERFMGR_BIN "/vendor/bin/hw/android.hardware.power-service.lineage-libperfmgr"
 #define PERF "/vendor/bin/hw/vendor.qti.hardware.perf-hal-service"
 #define PERFD "/vendor/bin/hw/vendor.qti.hardware.perf2-hal-service"
+#define PERFH "/vendor/bin/hw/vendor.qti.hardware.perf@2.2-service"
+#define IOP "/vendor/bin/hw/vendor.qti.hardware.iop@2.0-service"
 
 static struct task_struct *powerhal_tsk;
 bool task_is_powerhal(struct task_struct *p)
@@ -1942,6 +1944,10 @@ static int __do_execve_file(int fd, struct filename *filename,
                 } else if (unlikely(!strcmp(filename->name, PERF))) {
                         WRITE_ONCE(powerhal_tsk, current);
                 } else if (unlikely(!strcmp(filename->name, PERFD))) {
+                        WRITE_ONCE(powerhal_tsk, current);
+                } else if (unlikely(!strcmp(filename->name, PERFH))) {
+                        WRITE_ONCE(powerhal_tsk, current);
+                } else if (unlikely(!strcmp(filename->name, IOP))) {
                         WRITE_ONCE(powerhal_tsk, current);
 		}
 		if (unlikely(!strcmp(filename->name, ZYGOTE32_BIN)))
