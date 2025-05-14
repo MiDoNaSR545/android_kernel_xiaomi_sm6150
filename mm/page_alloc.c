@@ -77,6 +77,7 @@
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 #include "internal.h"
+#include <linux/binfmts.h>
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
@@ -7398,6 +7399,9 @@ int watermark_scale_factor_sysctl_handler(struct ctl_table *table, int write,
 	void __user *buffer, size_t *length, loff_t *ppos)
 {
 	int rc;
+
+	if (task_is_booster(current))
+		return 0;
 
 	rc = proc_dointvec_minmax(table, write, buffer, length, ppos);
 	if (rc)
