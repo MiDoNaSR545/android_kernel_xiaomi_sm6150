@@ -76,6 +76,7 @@
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 #include "internal.h"
+#include <linux/binfmts.h>
 
 atomic_long_t kshrinkd_waiters = ATOMIC_LONG_INIT(0);
 
@@ -7455,6 +7456,9 @@ int watermark_scale_factor_sysctl_handler(struct ctl_table *table, int write,
 	void __user *buffer, size_t *length, loff_t *ppos)
 {
 	int rc;
+
+	if (task_is_booster(current))
+		return 0;
 
 	rc = proc_dointvec_minmax(table, write, buffer, length, ppos);
 	if (rc)
