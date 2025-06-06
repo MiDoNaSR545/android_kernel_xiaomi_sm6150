@@ -795,8 +795,8 @@ static int sugov_init(struct cpufreq_policy *policy)
 	tunables->up_rate_limit_us = 0;
 	tunables->down_rate_limit_us = 0;
 #else
-	tunables->up_rate_limit_us = 20000;
-	tunables->down_rate_limit_us = 500;
+	tunables->up_rate_limit_us = 4000;
+	tunables->down_rate_limit_us = 16000;
 #endif
 
 	if (cpumask_test_cpu(sg_policy->policy->cpu, cpu_lp_mask)) {
