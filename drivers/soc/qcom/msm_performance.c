@@ -258,7 +258,8 @@ static int perf_adjust_notify(struct notifier_block *nb, unsigned long val,
 	struct cpufreq_policy *policy = data;
 	unsigned int cpu = policy->cpu;
 	struct cpu_status *cpu_st = &per_cpu(cpu_stats, cpu);
-	unsigned int min = cpu_st->min, max = cpu_st->max;
+	unsigned int min = cpu_st->min;
+	// unsigned int max = cpu_st->max;
 
 
 	if (val != CPUFREQ_ADJUST)
@@ -266,9 +267,10 @@ static int perf_adjust_notify(struct notifier_block *nb, unsigned long val,
 
 	pr_debug("msm_perf: CPU%u policy before: %u:%u kHz\n", cpu,
 						policy->min, policy->max);
-	pr_debug("msm_perf: CPU%u seting min:max %u:%u kHz\n", cpu, min, max);
+	pr_debug("msm_perf: CPU%u setting min %u kHz\n", cpu, min);
 
-	cpufreq_verify_within_limits(policy, min, max);
+
+	cpufreq_verify_within_limits(policy, min, UINT_MAX);
 
 	pr_debug("msm_perf: CPU%u policy after: %u:%u kHz\n", cpu,
 						policy->min, policy->max);
