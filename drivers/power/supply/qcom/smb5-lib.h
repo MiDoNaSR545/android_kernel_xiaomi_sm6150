@@ -215,7 +215,7 @@ enum print_reason {
 
 #define MAIN_ICL_MIN			100000
 #define SIX_PIN_VFLOAT_VOTER		"SIX_PIN_VFLOAT_VOTER"
-#define WARM_VFLOAT_UV			4100000
+#define WARM_VFLOAT_UV			4300000
 
 /* ffc related */
 #define NON_FFC_VFLOAT_VOTER			"NON_FFC_VFLOAT_VOTER"
