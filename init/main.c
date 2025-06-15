@@ -102,6 +102,16 @@ static int kernel_init(void *);
 extern void init_IRQ(void);
 extern void radix_tree_init(void);
 
+int zram_size_override = 0;
+EXPORT_SYMBOL(zram_size_override);
+
+static int __init read_zram_size_override(char *s)
+{
+	kstrtoint(s, 10, &zram_size_override);
+	return 1;
+}
+__setup("override.zram_size=", read_zram_size_override);
+
 /*
  * Debug helper: via this flag we know that we are in 'early bootup code'
  * where only the boot processor is running with IRQ disabled.  This means
