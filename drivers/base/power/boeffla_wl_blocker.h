@@ -21,7 +21,7 @@
 									"a600000.ssusb;998000.qcom,qup_uart;hal_bluetooth_lock;" \
 									"IPA_WS;IPA_CLIENT_APPS_WAN_COAL_CONS;" \
 									"IPA_CLIENT_APPS_WAN_LOW_LAT_CONS;IPA_CLIENT_APPS_LAN_CONS;" \
-									"spi0.0;spi1.0;rmnet_ipa%d;rmnet_ctl;RMNET_SHS;pmo_wow_wl;" \
+									"rmnet_ipa%d;rmnet_ctl;RMNET_SHS;pmo_wow_wl;" \
 									"IPA_CLIENT_APPS_WAN_CONS;wlan_pno_wl;wlan_deauth_rec_wl;" \
 									"wlan_auth_req_wl;wlan_ap_assoc_lost_wl;" \
 									"elliptic_wake_source;bq2597x-standalone;wlan_roam_ho_wl;" \
