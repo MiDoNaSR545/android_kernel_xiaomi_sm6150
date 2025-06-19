@@ -16,7 +16,7 @@
 
 #define BOEFFLA_WL_BLOCKER_VERSION	"1.1.0"
 
-#define LIST_WL_DEFAULT				"RMNET_DFC;DIAG_WS;[timerfd];alarmtimer;qcom_rx_wakelock;" \
+#define LIST_WL_DEFAULT				"RMNET_DFC;DIAG_WS;qcom_rx_wakelock;" \
 									"wlan;wlan_wow_wl;wlan_extscan_wl;netmgr_wl;NETLINK;" \
 									"a600000.ssusb;998000.qcom,qup_uart;hal_bluetooth_lock;" \
 									"IPA_WS;IPA_CLIENT_APPS_WAN_COAL_CONS;" \
