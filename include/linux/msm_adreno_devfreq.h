@@ -18,8 +18,10 @@
 #include <linux/notifier.h>
 
 #define DEVFREQ_FLAG_WAKEUP_MAXFREQ	0x2
-#define DEVFREQ_FLAG_FAST_HINT		0x4
-#define DEVFREQ_FLAG_SLOW_HINT		0x8
+/* Flags used to send bus modifier hint from busmon governer to driver */
+#define BUSMON_FLAG_FAST_HINT		BIT(0)
+#define BUSMON_FLAG_SUPER_FAST_HINT	BIT(1)
+#define BUSMON_FLAG_SLOW_HINT		BIT(2)
 
 struct device;
 
@@ -30,6 +32,7 @@ struct xstats {
 	u64 ram_time;
 	u64 ram_wait;
 	int mod;
+	unsigned long gpu_minfreq;
 };
 
 struct devfreq_msm_adreno_tz_data {
