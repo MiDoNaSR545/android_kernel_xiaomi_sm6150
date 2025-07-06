@@ -163,9 +163,9 @@ struct scan_control {
 #define prefetchw_prev_lru_page(_page, _base, _field) do { } while (0)
 #endif
 
-unsigned long sysctl_anon_min_kbytes __read_mostly = CONFIG_ANON_MIN_KBYTES;
-unsigned long sysctl_clean_low_kbytes __read_mostly = CONFIG_CLEAN_LOW_KBYTES;
-unsigned long sysctl_clean_min_kbytes __read_mostly = CONFIG_CLEAN_MIN_KBYTES;
+unsigned long sysctl_anon_min_kbytes __read_mostly;
+unsigned long sysctl_clean_low_kbytes __read_mostly;
+unsigned long sysctl_clean_min_kbytes __read_mostly;
 
 /*
  * From 0 .. 100.  Higher means more swappy.
@@ -2295,6 +2295,33 @@ static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
 
 	return shrink_inactive_list(nr_to_scan, lruvec, sc, lru);
 }
+
+static int __init set_workingset_protection_values(void)
+{
+	struct sysinfo i;
+
+	si_meminfo(&i);
+	/* Convert totalram from pages to KB */
+	i.totalram <<= (PAGE_SHIFT - 10);
+
+	if (i.totalram > 7340032) { /* 8GB+ RAM */
+		sysctl_anon_min_kbytes = 262144;  /* 256MB */
+		sysctl_clean_min_kbytes = 262144; /* 256MB */
+		sysctl_clean_low_kbytes = 524288; /* 512MB */
+	} else if (i.totalram > 5242880) { /* 6GB RAM */
+		sysctl_anon_min_kbytes = 196608;  /* 192MB */
+		sysctl_clean_min_kbytes = 196608; /* 192MB */
+		sysctl_clean_low_kbytes = 393216; /* 384MB */
+	} else { /* 4GB or less RAM */
+		sysctl_anon_min_kbytes = 131072;  /* 128MB */
+		sysctl_clean_min_kbytes = 131072; /* 128MB */
+		sysctl_clean_low_kbytes = 262144; /* 256MB */
+	}
+
+	pr_info("Workingset protection: adaptive values set for %ld KB RAM\n", i.totalram);
+	return 0;
+}
+late_initcall(set_workingset_protection_values);
 
 static void prepare_workingset_protection(pg_data_t *pgdat, struct scan_control *sc)
 {
