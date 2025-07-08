@@ -1415,14 +1415,6 @@ static void update_tg_load_avg(struct cfs_rq *cfs_rq, int force)
 
 static void set_next_buddy(struct sched_entity *se);
 
-static inline bool resched_next_slice(struct cfs_rq *cfs_rq, struct sched_entity *curr)
-{
-	if (protect_slice(curr))
-		return false;
-
-	return !entity_eligible(cfs_rq, curr);
-}
-
 /*
  * Update the current task's runtime statistics.
  */
