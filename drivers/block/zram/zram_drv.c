@@ -2442,9 +2442,18 @@ static ssize_t disksize_store(struct device *dev,
 	struct zram *zram = dev_to_zram(dev);
 	int err;
 	u32 prio;
+	static bool zram_size_set_once;
+`
 
-	disksize = PAGE_ALIGN((u64)SZ_1G * 6);
-	pr_info("Setting zRAM size to %llu GB", disksize / 1073741824);
+	if (!zram_size_set_once) {
+		disksize = PAGE_ALIGN((u64)SZ_1G * 6);
+		zram_size_set_once = true;
+		pr_info("Setting zRAM size to %llu GB", disksize / 1073741824);
+	} else {
+		disksize = PAGE_ALIGN(disksize);
+		if (!disksize)
+			return -EINVAL;
+	}
 
 	down_write(&zram->init_lock);
 	if (init_done(zram)) {
