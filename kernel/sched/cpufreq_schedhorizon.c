@@ -32,7 +32,7 @@ static unsigned int default_efficient_freq_lp[] = {1708800};
 static unsigned int default_efficient_freq_perf[] = {1324800};
 
 /* Define default up delays for big and LITTLE cores */
-static unsigned int default_up_delay_lp[] = {60};
+static unsigned int default_up_delay_lp[] = {90};
 static unsigned int default_up_delay_perf[] = {90};
 
 struct sugov_tunables {
@@ -787,8 +787,8 @@ static int sugov_init(struct cpufreq_policy *policy)
 	tunables->up_rate_limit_us = 0;
 	tunables->down_rate_limit_us = 0;
 #else
-	tunables->up_rate_limit_us = 4000;
-	tunables->down_rate_limit_us = 16000;
+	tunables->up_rate_limit_us = 500;
+	tunables->down_rate_limit_us = 2000;
 #endif
 
 	if (cpumask_test_cpu(sg_policy->policy->cpu, cpu_lp_mask)) {
