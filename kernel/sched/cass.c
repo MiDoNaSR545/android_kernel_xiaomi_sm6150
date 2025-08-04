@@ -160,7 +160,7 @@ static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync, bool rt
 		struct rq *rq = cpu_rq(cpu);
 
 		/* Get the original, maximum _possible_ capacity of this CPU */
-		curr->cap_max = arch_scale_cpu_capacity(cpu);
+		curr->cap_max = arch_scale_cpu_capacity(NULL, cpu);
 
 		/*
 		 * Check if this CPU is idle or only has SCHED_IDLE tasks. For
@@ -168,7 +168,7 @@ static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync, bool rt
 		 * only running task.
 		 */
 		if ((sync && cpu == this_cpu && rq->nr_running == 1) ||
-		    available_idle_cpu(cpu) || sched_idle_cpu(cpu)) {
+		    available_idle_cpu(cpu)) {
 			/* Discard any previous non-idle candidate */
                         if (!has_idle)
 				 best = curr;
@@ -273,13 +273,13 @@ static int cass_select_task_rq(struct task_struct *p, int prev_cpu, int sd_flag,
 }
 
 static int cass_select_task_rq_fair(struct task_struct *p, int prev_cpu,
-				    int sd_flag, int wake_flags)
+				    int sd_flag, int wake_flags, int sibling_count_hint)
 {
 	return cass_select_task_rq(p, prev_cpu, sd_flag, wake_flags, false);
 }
 
 int cass_select_task_rq_rt(struct task_struct *p, int prev_cpu, int sd_flag,
-			   int wake_flags)
+			   int wake_flags, int sibling_count_hint)
 {
 	return cass_select_task_rq(p, prev_cpu, sd_flag, wake_flags, true);
 }
