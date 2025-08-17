@@ -1620,7 +1620,7 @@ static struct irq_chip msm_dirconn_irq_chip = {
 	.irq_ack		= msm_dirconn_irq_ack,
 	.irq_set_type		= msm_dirconn_irq_set_type,
 	.irq_set_wake		= msm_dirconn_irq_set_wake,
-	.irq_set_affinity	= msm_dirconn_irq_set_affinity,
+	.irq_set_affinity	= !IS_ENABLED(CONFIG_IRQ_SBALANCE) ? msm_dirconn_irq_set_affinity : 0,
 	.irq_set_vcpu_affinity	= msm_dirconn_irq_set_vcpu_affinity,
 	.flags			= IRQCHIP_MASK_ON_SUSPEND
 					| IRQCHIP_SET_TYPE_MASKED,
