@@ -3022,7 +3022,8 @@ static inline unsigned long cpu_util_cfs(struct rq *rq)
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
-unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
+
+unsigned long effective_cpu_util(int cpu, unsigned long util_cfs,
 				 unsigned long *min,
 				 unsigned long *max);
 
@@ -3044,6 +3045,7 @@ static inline unsigned long cpu_util_rt(struct rq *rq)
 {
 	return READ_ONCE(rq->avg_rt.util_avg);
 }
+
 #endif
 
 #ifdef CONFIG_SMP
