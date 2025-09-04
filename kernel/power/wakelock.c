@@ -25,6 +25,7 @@
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/init.h>
+#include <linux/stat.h>
 
 #include "power.h"
 
@@ -41,6 +42,9 @@ struct wakelock {
 
 static struct rb_root wakelocks_tree = RB_ROOT;
 
+static struct wakelock *wakelock_lookup_add(const char *name, size_t len,
+					    bool add_if_not_found);
+
 struct wakelock_governor_entry {
 	struct list_head list;
 	char *name;
@@ -52,6 +56,8 @@ static struct kobject *governor_kobj;
 
 static bool governor_enabled = true;
 static u64 governor_max_time_ms = 60000;
+static bool governor_debug = false;
+static u64 governor_stats_released = 0;
 static LIST_HEAD(governor_active_list);
 static DEFINE_SPINLOCK(governor_lock);
 
@@ -98,12 +104,50 @@ static ssize_t max_time_ms_store(struct kobject *kobj, struct kobj_attribute *at
 	return count;
 }
 
+static ssize_t debug_show(struct kobject *kobj, struct kobj_attribute *attr,
+			  char *buf)
+{
+	return sprintf(buf, "%d\n", governor_debug);
+}
+
+static ssize_t debug_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int ret;
+	bool value;
+
+	ret = kstrtobool(buf, &value);
+	if (ret)
+		return ret;
+
+	governor_debug = value;
+	return count;
+}
+
+static ssize_t stats_show(struct kobject *kobj, struct kobj_attribute *attr,
+			  char *buf)
+{
+	return sprintf(buf, "Wakelocks force-released: %llu\n", governor_stats_released);
+}
+
+static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
+			    char *buf)
+{
+	return sprintf(buf, "Wakelock Governor v1.0\n");
+}
+
 static struct kobj_attribute enabled_attr = __ATTR(enabled, 0644, enabled_show, enabled_store);
 static struct kobj_attribute max_time_ms_attr = __ATTR(max_time_ms, 0644, max_time_ms_show, max_time_ms_store);
+static struct kobj_attribute debug_attr = __ATTR(debug, 0644, debug_show, debug_store);
+static struct kobj_attribute stats_attr = __ATTR(stats, 0444, stats_show, NULL);
+static struct kobj_attribute version_attr = __ATTR(version, 0444, version_show, NULL);
 
 static struct attribute *governor_attrs[] = {
 	&enabled_attr.attr,
 	&max_time_ms_attr.attr,
+	&debug_attr.attr,
+	&stats_attr.attr,
+	&version_attr.attr,
 	NULL,
 };
 
@@ -130,6 +174,12 @@ static void governor_work_fn(struct work_struct *work)
 			wl = wakelock_lookup_add(entry->name, strlen(entry->name), false);
 			if (!IS_ERR(wl)) {
 				__pm_relax(wl->ws);
+				governor_stats_released++;
+				
+				if (governor_debug) {
+					pr_info("Wakelock governor: Released %s after %llums\n",
+					       entry->name, elapsed_ms);
+				}
 			}
 			mutex_unlock(&wakelocks_lock);
 			
@@ -163,6 +213,8 @@ static int __init wakelock_governor_init(void)
 	}
 
 	INIT_DELAYED_WORK(&governor_work, governor_work_fn);
+	
+	pr_info("Wakelock governor initialized with %llums limit\n", governor_max_time_ms);
 	return 0;
 }
 
