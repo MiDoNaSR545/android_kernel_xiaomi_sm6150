@@ -45,6 +45,7 @@ static struct rb_root wakelocks_tree = RB_ROOT;
 static struct wakelock *wakelock_lookup_add(const char *name, size_t len,
 					    bool add_if_not_found);
 
+#ifdef CONFIG_WAKELOCK_GOVERNOR
 struct wakelock_governor_entry {
 	struct list_head list;
 	char *name;
@@ -136,9 +137,9 @@ static ssize_t version_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return sprintf(buf, "Wakelock Governor v1.0\n");
 }
 
-static struct kobj_attribute enabled_attr = __ATTR(enabled, 0644, enabled_show, enabled_store);
-static struct kobj_attribute max_time_ms_attr = __ATTR(max_time_ms, 0644, max_time_ms_show, max_time_ms_store);
-static struct kobj_attribute debug_attr = __ATTR(debug, 0644, debug_show, debug_store);
+static struct kobj_attribute enabled_attr = __ATTR(enabled, 0664, enabled_show, enabled_store);
+static struct kobj_attribute max_time_ms_attr = __ATTR(max_time_ms, 0664, max_time_ms_show, max_time_ms_store);
+static struct kobj_attribute debug_attr = __ATTR(debug, 0664, debug_show, debug_store);
 static struct kobj_attribute stats_attr = __ATTR(stats, 0444, stats_show, NULL);
 static struct kobj_attribute version_attr = __ATTR(version, 0444, version_show, NULL);
 
@@ -203,11 +204,14 @@ static int __init wakelock_governor_init(void)
 	int ret;
 
 	governor_kobj = kobject_create_and_add("wakelock_governor", kernel_kobj);
-	if (!governor_kobj)
+	if (!governor_kobj) {
+		pr_err("Failed to create wakelock governor kobject\n");
 		return -ENOMEM;
+	}
 
 	ret = sysfs_create_group(governor_kobj, &governor_attr_group);
 	if (ret) {
+		pr_err("Failed to create wakelock governor sysfs group: %d\n", ret);
 		kobject_put(governor_kobj);
 		return ret;
 	}
@@ -219,6 +223,7 @@ static int __init wakelock_governor_init(void)
 }
 
 late_initcall(wakelock_governor_init);
+#endif /* CONFIG_WAKELOCK_GOVERNOR */
 
 ssize_t pm_show_wakelocks(char *buf, bool show_active)
 {
@@ -295,8 +300,10 @@ static void __wakelocks_gc(struct work_struct *work)
 {
 	struct wakelock *wl, *aux;
 	ktime_t now;
+#ifdef CONFIG_WAKELOCK_GOVERNOR
 	unsigned long flags;
 	struct wakelock_governor_entry *gov_entry, *tmp;
+#endif
 
 	mutex_lock(&wakelocks_lock);
 
@@ -314,6 +321,7 @@ static void __wakelocks_gc(struct work_struct *work)
 			break;
 
 		if (!active) {
+#ifdef CONFIG_WAKELOCK_GOVERNOR
 			spin_lock_irqsave(&governor_lock, flags);
 			list_for_each_entry_safe(gov_entry, tmp, &governor_active_list, list) {
 				if (strcmp(gov_entry->name, wl->name) == 0) {
@@ -324,6 +332,7 @@ static void __wakelocks_gc(struct work_struct *work)
 				}
 			}
 			spin_unlock_irqrestore(&governor_lock, flags);
+#endif
 			
 			wakeup_source_unregister(wl->ws);
 			rb_erase(&wl->node, &wakelocks_tree);
@@ -413,8 +422,10 @@ int pm_wake_lock(const char *buf)
 	u64 timeout_ns = 0;
 	size_t len;
 	int ret = 0;
+#ifdef CONFIG_WAKELOCK_GOVERNOR
 	unsigned long flags;
 	struct wakelock_governor_entry *gov_entry;
+#endif
 
 	if (!capable(CAP_BLOCK_SUSPEND))
 		return -EPERM;
@@ -447,6 +458,7 @@ int pm_wake_lock(const char *buf)
 	} else {
 		__pm_stay_awake(wl->ws);
 		
+#ifdef CONFIG_WAKELOCK_GOVERNOR
 		if (governor_enabled) {
 			gov_entry = kmalloc(sizeof(*gov_entry), GFP_KERNEL);
 			if (gov_entry) {
@@ -467,6 +479,7 @@ int pm_wake_lock(const char *buf)
 				}
 			}
 		}
+#endif
 	}
 
 	wakelocks_lru_most_recent(wl);
@@ -481,8 +494,10 @@ int pm_wake_unlock(const char *buf)
 	struct wakelock *wl;
 	size_t len;
 	int ret = 0;
+#ifdef CONFIG_WAKELOCK_GOVERNOR
 	unsigned long flags;
 	struct wakelock_governor_entry *gov_entry, *tmp;
+#endif
 
 	if (!capable(CAP_BLOCK_SUSPEND))
 		return -EPERM;
@@ -506,6 +521,7 @@ int pm_wake_unlock(const char *buf)
 	}
 	__pm_relax(wl->ws);
 	
+#ifdef CONFIG_WAKELOCK_GOVERNOR
 	if (governor_enabled) {
 		spin_lock_irqsave(&governor_lock, flags);
 		list_for_each_entry_safe(gov_entry, tmp, &governor_active_list, list) {
@@ -518,6 +534,7 @@ int pm_wake_unlock(const char *buf)
 		}
 		spin_unlock_irqrestore(&governor_lock, flags);
 	}
+#endif
 
 	wakelocks_lru_most_recent(wl);
 	wakelocks_gc();
