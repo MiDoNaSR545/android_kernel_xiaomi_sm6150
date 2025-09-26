@@ -29,6 +29,8 @@
  */
 #define SCHED_FEAT_CACHE_HOT_BUDDY 1
 
+#define SCHED_FEAT_PARANOID_AVG 0
+
 /*
  * Allow wakeup-time preemption of the current task:
  */
