@@ -3605,7 +3605,7 @@ static inline void update_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *s
 	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD))
 		__update_load_avg_se(now, cpu, cfs_rq, se);
 
-	decayed  = update_cfs_rq_load_avg(now, cfs_rq, true);
+	decayed  = update_cfs_rq_load_avg(now, cfs_rq);
 	decayed |= propagate_entity_load_avg(se);
 
 	if (!se->avg.last_update_time && (flags & DO_ATTACH)) {
@@ -12921,8 +12921,8 @@ static void walt_check_for_rotation(struct rq *src_rq)
 	double_rq_lock(src_rq, dst_rq);
 	if (dst_rq->curr->sched_class == &fair_sched_class &&
 		!src_rq->active_balance && !dst_rq->active_balance &&
-		cpumask_test_cpu(dst_cpu, &src_rq->curr->cpus_allowed) &&
-		cpumask_test_cpu(src_cpu, &dst_rq->curr->cpus_allowed)) {
+		cpumask_test_cpu(dst_cpu, &src_rq->curr->cpus_mask) &&
+		cpumask_test_cpu(src_cpu, &dst_rq->curr->cpus_mask)) {
 		get_task_struct(src_rq->curr);
 		get_task_struct(dst_rq->curr);
 
