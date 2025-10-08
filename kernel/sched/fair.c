@@ -8957,18 +8957,21 @@ done: __maybe_unused
 
 idle:
 	update_misfit_status(NULL, rq);
-	new_tasks = idle_balance(rq, rf);
 
-	/*
-	 * Because idle_balance() releases (and re-acquires) rq->lock, it is
-	 * possible for any higher priority task to appear. In that case we
-	 * must re-start the pick_next_entity() loop.
-	 */
-	if (new_tasks < 0)
-		return RETRY_TASK;
+	if (rf) {
+		new_tasks = idle_balance(rq, rf);
 
-	if (new_tasks > 0)
-		goto again;
+		/*
+		 * Because idle_balance() releases (and re-acquires) rq->lock, it is
+		 * possible for any higher priority task to appear. In that case we
+		 * must re-start the pick_next_entity() loop.
+		 */
+		if (new_tasks < 0)
+			return RETRY_TASK;
+
+		if (new_tasks > 0)
+			goto again;
+	}
 
 	/*
 	 * rq is about to be idle, check if we need to update the
