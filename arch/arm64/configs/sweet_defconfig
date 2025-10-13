@@ -3077,7 +3077,30 @@ CONFIG_REGULATOR_REFGEN=y
 CONFIG_REGULATOR_RPMH=y
 # CONFIG_REGULATOR_SPM is not set
 CONFIG_REGULATOR_STUB=y
-# CONFIG_RC_CORE is not set
+CONFIG_RC_CORE=y
+CONFIG_RC_MAP=y
+CONFIG_LIRC=y
+# CONFIG_BPF_LIRC_MODE2 is not set
+# CONFIG_RC_DECODERS is not set
+CONFIG_RC_DEVICES=y
+# CONFIG_RC_ATI_REMOTE is not set
+# CONFIG_IR_HIX5HD2 is not set
+# CONFIG_IR_IMON is not set
+# CONFIG_IR_IMON_RAW is not set
+# CONFIG_IR_MCEUSB is not set
+# CONFIG_IR_REDRAT3 is not set
+CONFIG_IR_SPI=y
+# CONFIG_IR_STREAMZAP is not set
+# CONFIG_IR_IGORPLUGUSB is not set
+# CONFIG_IR_IGUANA is not set
+# CONFIG_IR_TTUSBIR is not set
+# CONFIG_RC_LOOPBACK is not set
+# CONFIG_IR_GPIO_CIR is not set
+# CONFIG_IR_GPIO_TX is not set
+# CONFIG_IR_PWM_TX is not set
+# CONFIG_IR_SERIAL is not set
+# CONFIG_IR_SIR is not set
+CONFIG_IR_MSM_GENI=y
 CONFIG_MEDIA_SUPPORT=y
 
 #
@@ -3131,10 +3154,13 @@ CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV=y
 # Analog/digital TV USB devices
 #
 # CONFIG_VIDEO_AU0828 is not set
+# CONFIG_VIDEO_CX231XX is not set
+# CONFIG_VIDEO_TM6000 is not set
 
 #
 # Digital TV USB devices
 #
+# CONFIG_DVB_USB is not set
 # CONFIG_DVB_USB_V2 is not set
 # CONFIG_DVB_TTUSB_BUDGET is not set
 # CONFIG_DVB_TTUSB_DEC is not set
@@ -3207,6 +3233,7 @@ CONFIG_MSM_NPU=y
 # Media ancillary drivers (tuners, sensors, i2c, spi, frontends)
 #
 CONFIG_MEDIA_SUBDRV_AUTOSELECT=y
+CONFIG_VIDEO_IR_I2C=y
 
 #
 # Audio decoders, processors and mixers
@@ -3761,6 +3788,7 @@ CONFIG_HID_PICOLCD=y
 # CONFIG_HID_PICOLCD_FB is not set
 # CONFIG_HID_PICOLCD_BACKLIGHT is not set
 # CONFIG_HID_PICOLCD_LEDS is not set
+# CONFIG_HID_PICOLCD_CIR is not set
 CONFIG_HID_PLANTRONICS=y
 CONFIG_HID_PLAYSTATION=y
 CONFIG_PLAYSTATION_FF=y
