@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -169,6 +170,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_CAPTURE_OUTPUT,
 
 	CRTC_PROP_IDLE_PC_STATE,
+	CRCT_PROP_MI_FOD_SYNC_INFO,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
@@ -958,7 +960,6 @@ void __init msm_mdp_register(void);
 void __exit msm_mdp_unregister(void);
 
 void msm_idle_set_state(struct drm_encoder *encoder, bool active);
-
 #ifdef CONFIG_DEBUG_FS
 void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m);
 void msm_gem_describe_objects(struct list_head *list, struct seq_file *m);
