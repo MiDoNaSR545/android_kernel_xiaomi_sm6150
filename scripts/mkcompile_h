@@ -84,7 +84,8 @@ UTS_TRUNCATE="cut -b -$UTS_LEN"
   fi
 
   LD_VERSION=$($LD -v | head -n1 | sed 's/(compatible with [^)]*)//' \
-		      | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+		      | head -n 1 |  perl -pe 's/\(http.*?\)//gs; s/\s*\(\/[^)]*\)//g' \
+		      | sed 's/[[:space:]]*$//')
 
   printf '#define LINUX_COMPILER "%s"\n' "$CC_VERSION, $LD_VERSION"
   ) > .tmpcompile
