@@ -781,7 +781,7 @@ update_time:
 #define JEITA_SUSPEND_HYST_UV		130000
 #define JEITA_SIX_PIN_BATT_HYST_UV	100000
 #define WARM_VFLOAT_UV			4100000
-#define BATT_HOT_SHUTDOWN_TEMP    420
+#define BATT_HOT_SHUTDOWN_TEMP    580
 #define BATT_TOO_COLD_TEMP        -100
 
 static int handle_jeita(struct step_chg_info *chip)
