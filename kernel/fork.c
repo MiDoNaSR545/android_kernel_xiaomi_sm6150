@@ -2241,16 +2241,25 @@ long _do_fork(unsigned long clone_flags,
 		/*
 	 	 * Boost DDR bus and CPU to the max when userspace 
 	 	 * launches an app according to set kernel profile.
+		 * Only if within 1.5s input timeout.
 	 	 */
 		switch (kp_active_mode()) {
 		case 0:
 		case 2:
-			cpu_input_boost_kick_max(50);
+			if (df_boost_within_input(1500)) {
 			devfreq_boost_kick_max(DEVFREQ_CPU_LLCC_DDR_BW, 50);
+			}
+			if (cpu_input_boost_within_input(1500)) {
+			cpu_input_boost_kick_max(50);
+			}
 			break;
 		case 3:
-			cpu_input_boost_kick_max(75);
+			if (df_boost_within_input(1500)) {
 			devfreq_boost_kick_max(DEVFREQ_CPU_LLCC_DDR_BW, 75);
+			}
+			if (cpu_input_boost_within_input(1500)) {
+			cpu_input_boost_kick_max(75);
+			}
 			break;
 		default:
 			break;
