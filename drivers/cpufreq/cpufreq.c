@@ -746,7 +746,11 @@ static ssize_t show_scaling_governor(struct cpufreq_policy *policy, char *buf)
 #ifdef CONFIG_KPROFILES
 	else if (kp_active_mode() == 1)
 		return sprintf(buf, "powersave\n");
-#endif
+#ifdef CONFIG_CPU_FREQ_GOV_SCHEDHORIZON
+	else if (kp_active_mode() == 3)
+		return sprintf(buf, "schedhorizon\n");
+#endif // CONFIG_CPU_FREQ_GOV_SCHEDHORIZON
+#endif // CONFIG_KPROFILES
 	else if (policy->governor)
 		return scnprintf(buf, CPUFREQ_NAME_PLEN, "%s\n",
 				policy->governor->name);
