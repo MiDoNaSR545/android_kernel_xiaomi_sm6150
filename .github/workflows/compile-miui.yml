@@ -1,0 +1,74 @@
+name: Compiling kernel for MIUI
+
+on:
+  push:
+    branches:
+      - "MIUI-buildout"
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+          
+      - name: Set up dependencies
+        run: |
+          sudo apt update
+          sudo apt install bc build-essential bison flex zip p7zip-full libc6 curl libstdc++6 git wget libssl-dev zstd lld python3 -y
+
+      - name: Set Build Variables
+        run: |
+          echo "ZIPNAME=[MIUI]-Spiteful-sweet-$(date '+%Y%m%d').zip" >> $GITHUB_ENV
+          echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Clone KernelSU-Next and compile
+        # --- FIX: 'run:' was incorrectly indented ---
+        run: |
+          git clone https://github.com/vbajs/KernelSU-Next --depth=1 -b next KernelSU
+          export KSU_BASE="ksun"
+          chmod +x ./compile.sh
+          ./compile.sh
+
+      - name: Clone RissuKSU and compile
+        # --- FIX: 'run:' was incorrectly indented ---
+        run: |
+          rm -rf KernelSU
+          git clone https://github.com/rsuntk/KernelSU --depth=1 -b v1.0.5-81-legacy KernelSU
+          export KSU_BASE="rksu"
+          make O=out mrproper
+          ./compile.sh
+
+      - name: Compile without KSU
+        # --- FIX: 'run:' was incorrectly indented ---
+        run: |
+          rm -rf KernelSU
+          patch -p1 < revert-ksu-config.patch
+          unset KSU_BASE
+          make O=out mrproper
+          ./compile.sh
+
+      - name: Zip up and send to telegram
+        # This step now also includes downloading the telegram script
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.tg_token }}
+          TELEGRAM_CHAT: ${{ secrets.tg_chat }}
+        run: |
+          # Setup telegram script
+          wget https://raw.githubusercontent.com/fabianonline/telegram.sh/refs/heads/master/telegram
+          chmod +x ./telegram
+          
+          # Zip up the artifacts
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          HASH="$(echo $(git rev-parse --verify HEAD 2>/dev/null) | cut -c1-8)"
+          chmod +x ./zipup.sh
+          ./zipup.sh
+          
+          # Send the message
+          echo "Zip: $ZIPNAME"
+          ./telegram -f $ZIPNAME -C "Completed in $((DURATION / 60)) minute(s) and $((DURATION % 60)) second(s) ! Latest commit: $HASH"
+

@@ -1,0 +1,21 @@
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index 3c4623814d2f..fd1806645ec5 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -229,6 +229,4 @@ source "drivers/esoc/Kconfig"
+ 
+ source "drivers/kprofiles/Kconfig"
+ 
+-source "drivers/kernelsu/Kconfig"
+-
+ endmenu
+diff --git a/drivers/Makefile b/drivers/Makefile
+index 3177fd028c83..eeefcca58dfd 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -194,5 +194,3 @@ obj-$(CONFIG_GNSS_SIRF)		+= gnsssirf/
+ obj-$(CONFIG_GNSS)		+= gnss/
+ 
+ obj-$(CONFIG_KPROFILES)		+= kprofiles/
+-
+-obj-$(CONFIG_KSU) += kernelsu/
