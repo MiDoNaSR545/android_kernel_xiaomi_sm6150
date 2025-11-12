@@ -9953,15 +9953,11 @@ static inline bool cfs_rq_is_decayed(struct cfs_rq *cfs_rq)
 	return true;
 }
 
-static void update_blocked_averages(int cpu)
+static void __update_blocked_averages(struct rq *rq)
 {
-	struct rq *rq = cpu_rq(cpu);
 	struct cfs_rq *cfs_rq, *pos;
 	const struct sched_class *curr_class;
-	struct rq_flags rf;
-
-	rq_lock_irqsave(rq, &rf);
-	update_rq_clock(rq);
+	int cpu = cpu_of(rq);
 
 	/*
 	 * Iterates the task_group tree in a bottom up fashion, see
@@ -9993,6 +9989,16 @@ static void update_blocked_averages(int cpu)
 #ifdef CONFIG_NO_HZ_COMMON
 	rq->last_blocked_load_update_tick = jiffies;
 #endif
+}
+
+static void update_blocked_averages(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	struct rq_flags rf;
+
+	rq_lock_irqsave(rq, &rf);
+	update_rq_clock(rq);
+	__update_blocked_averages(rq);
 	rq_unlock_irqrestore(rq, &rf);
 }
 
@@ -10043,15 +10049,11 @@ static unsigned long task_h_load(struct task_struct *p)
 			cfs_rq_load_avg(cfs_rq) + 1);
 }
 #else
-static inline void update_blocked_averages(int cpu)
+static inline void __update_blocked_averages(struct rq *rq)
 {
-	struct rq *rq = cpu_rq(cpu);
 	struct cfs_rq *cfs_rq = &rq->cfs;
 	const struct sched_class *curr_class;
-	struct rq_flags rf;
 
-	rq_lock_irqsave(rq, &rf);
-	update_rq_clock(rq);
 	update_cfs_rq_load_avg(cfs_rq_clock_pelt(cfs_rq), cfs_rq, true);
 
 	curr_class = rq->curr->sched_class;
@@ -10061,6 +10063,16 @@ static inline void update_blocked_averages(int cpu)
 #ifdef CONFIG_NO_HZ_COMMON
 	rq->last_blocked_load_update_tick = jiffies;
 #endif
+}
+
+static inline void update_blocked_averages(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	struct rq_flags rf;
+
+	rq_lock_irqsave(rq, &rf);
+	update_rq_clock(rq);
+	__update_blocked_averages(rq);
 	rq_unlock_irqrestore(rq, &rf);
 }
 
@@ -11895,13 +11907,20 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	}
 	rcu_read_unlock();
 
+	/*
+	 * Include sched_balance_update_blocked_averages() in the cost
+	 * calculation because it can be quite costly -- this ensures we skip
+	 * it when avg_idle gets to be very low.
+	 */
+	t0 = sched_clock_cpu(this_cpu);
+	__update_blocked_averages(this_rq);
+
 	raw_spin_unlock(&this_rq->lock);
 
-	update_blocked_averages(this_cpu);
 	rcu_read_lock();
 	for_each_domain(this_cpu, sd) {
 		int continue_balancing = 1;
-		u64 t0, domain_cost;
+		u64 t1, domain_cost;
 
 		if (!(sd->flags & SD_LOAD_BALANCE)) {
 			if (time_after_eq(jiffies,
@@ -11917,8 +11936,6 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 		}
 
 		if (sd->flags & SD_BALANCE_NEWIDLE) {
-			t0 = sched_clock_cpu(this_cpu);
-
 			unsigned int weight = 1;
 
 			if (sched_feat(NI_RANDOM)) {
@@ -11940,9 +11957,11 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 						   sd, CPU_NEWLY_IDLE,
 						   &continue_balancing);
 
-			domain_cost = sched_clock_cpu(this_cpu) - t0;
+			t1 = sched_clock_cpu(this_cpu);
+			domain_cost = t1 - t0;
 			update_newidle_cost(sd, domain_cost);
 			curr_cost += domain_cost;
+			t0 = t1;
 		}
 
 		update_next_balance(sd, &next_balance);
@@ -12581,7 +12600,6 @@ static inline bool nohz_kick_needed(struct rq *rq, bool only_update)
 			kick = true;
 			goto unlock;
 		}
-
 	}
 
 	sd = rcu_dereference(per_cpu(sd_asym, cpu));
