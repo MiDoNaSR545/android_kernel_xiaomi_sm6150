@@ -547,7 +547,7 @@ int bpf_prog_array_copy(struct bpf_prog_array *old_array,
 		preempt_disable();			\
 		rcu_read_lock();			\
 		_array = rcu_dereference(array);	\
-		if (unlikely(check_non_null && !_array))\
+		if (unlikely(!_array))			\
 			goto _out;			\
 		_item = &_array->items[0];		\
 		while ((_prog = READ_ONCE(_item->prog))) {		\
@@ -595,6 +595,8 @@ _out:							\
 		preempt_disable();			\
 		rcu_read_lock();			\
 		_array = rcu_dereference(array);	\
+		if (unlikely(!_array))			\
+			goto _out_egress;		\
 		_item = &_array->items[0];		\
 		while ((_prog = READ_ONCE(_item->prog))) {		\
 			bpf_cgroup_storage_set(_item->cgroup_storage);	\
@@ -603,6 +605,7 @@ _out:							\
 			_cn |= (ret & 2);		\
 			_item++;			\
 		}					\
+_out_egress:						\
 		rcu_read_unlock();			\
 		preempt_enable();			\
 		if (_ret)				\
