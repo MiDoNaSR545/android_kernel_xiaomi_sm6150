@@ -579,7 +579,7 @@ struct cfs_rq {
 	unsigned long runnable_weight;
 
 	s64			avg_vruntime;
-	u64			avg_load;
+	u64			sum_weight;
 
 	u64 			exec_clock;
 	u64			zero_vruntime;
