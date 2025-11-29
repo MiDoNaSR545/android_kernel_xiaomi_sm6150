@@ -9382,7 +9382,7 @@ static struct task_struct *detach_one_task(struct lb_env *env)
 	return NULL;
 }
 
-static const unsigned int sched_nr_migrate_break = 32 << 1;
+static const unsigned int sched_nr_migrate_break = 32;
 
 /*
  * detach_tasks() -- tries to detach up to imbalance weighted load from
