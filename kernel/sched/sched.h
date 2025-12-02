@@ -578,7 +578,7 @@ struct cfs_rq {
 	unsigned int nr_running, h_nr_running, idle_h_nr_running;
 	unsigned long runnable_weight;
 
-	s64			avg_vruntime;
+	s64			sum_w_vruntime;
 	u64			sum_weight;
 
 	u64 			exec_clock;
