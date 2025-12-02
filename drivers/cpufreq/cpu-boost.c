@@ -55,6 +55,8 @@ static u64 last_input_time;
 static struct kthread_worker cpu_boost_worker;
 static struct task_struct *cpu_boost_worker_thread;
 
+extern int kp_active_mode(void);
+
 #define MIN_INPUT_INTERVAL (100 * USEC_PER_MSEC)
 
 static int set_input_boost_freq(const char *buf, const struct kernel_param *kp)
@@ -247,7 +249,7 @@ static void cpuboost_input_event(struct input_handle *handle,
 {
 	u64 now;
 
-	if (!input_boost_enabled)
+	if (!input_boost_enabled || kp_active_mode() == 1)
 		return;
 
 	now = ktime_to_us(ktime_get());
