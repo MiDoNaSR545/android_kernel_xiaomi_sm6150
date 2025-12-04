@@ -2806,6 +2806,8 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	struct msm_drm_private *priv;
 	struct sde_crtc_frame_event *fevent;
 	struct sde_crtc_frame_event_cb_data *cb_data;
+	struct drm_plane *plane;
+	u32 ubwc_error;
 	unsigned long flags;
 	u32 crtc_id;
 
@@ -2835,9 +2837,28 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
 	if (!fevent) {
-		SDE_ERROR("crtc%d event %d overflow\n", DRMID(crtc), event);
+		SDE_ERROR("crtc%d event %d overflow\n",
+				crtc->base.id, event);
 		SDE_EVT32(DRMID(crtc), event);
 		return;
+	}
+
+	/* log and clear plane ubwc errors if any */
+	if (event & (SDE_ENCODER_FRAME_EVENT_ERROR
+				| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD
+				| SDE_ENCODER_FRAME_EVENT_DONE)) {
+		drm_for_each_plane_mask(plane, crtc->dev,
+						sde_crtc->plane_mask_old) {
+			ubwc_error = sde_plane_get_ubwc_error(plane);
+			if (ubwc_error) {
+				SDE_EVT32(DRMID(crtc), DRMID(plane),
+						ubwc_error, SDE_EVTLOG_ERROR);
+				SDE_DEBUG("crtc%d plane %d ubwc_error %d\n",
+						DRMID(crtc), DRMID(plane),
+						ubwc_error);
+				sde_plane_clear_ubwc_error(plane);
+			}
+		}
 	}
 
 	fevent->event = event;
@@ -2855,7 +2876,7 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 	struct sde_crtc_state *cstate;
 	struct drm_connector *conn;
 	struct drm_encoder *encoder;
-	int i;
+	struct drm_connector_list_iter conn_iter;
 
 	if (!crtc || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
@@ -2869,16 +2890,24 @@ void sde_crtc_prepare_commit(struct drm_crtc *crtc,
 
 	SDE_ATRACE_BEGIN("sde_crtc_prepare_commit");
 
-	for (i = 0; i < cstate->num_connectors; i++) {
-		conn = cstate->connectors[i];
-		encoder = conn->state->best_encoder;
-		if (encoder)
-			sde_encoder_register_frame_event_callback(
-					encoder,
-					sde_crtc_frame_event_cb,
-					crtc);
-		sde_connector_prepare_fence(conn);
-	}
+	/* identify connectors attached to this crtc */
+	cstate->num_connectors = 0;
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(conn, &conn_iter)
+		if (conn->state && conn->state->crtc == crtc &&
+				cstate->num_connectors < MAX_CONNECTORS) {
+			encoder = conn->state->best_encoder;
+			if (encoder)
+				sde_encoder_register_frame_event_callback(
+						encoder,
+						sde_crtc_frame_event_cb,
+						crtc);
+
+			cstate->connectors[cstate->num_connectors++] = conn;
+			sde_connector_prepare_fence(conn);
+		}
+	drm_connector_list_iter_end(&conn_iter);
 
 	/* prepare main output fence */
 	sde_fence_prepare(sde_crtc->output_fence);
@@ -2991,9 +3020,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct sde_kms *sde_kms;
 	unsigned long flags;
 	bool in_clone_mode = false;
-	int ret;
-	struct drm_plane *plane;
-	u32 ubwc_error;
 
 	if (!work) {
 		SDE_ERROR("invalid work handle\n");
@@ -3027,28 +3053,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	if (!in_clone_mode && (fevent->event & (SDE_ENCODER_FRAME_EVENT_ERROR
 					| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD
 					| SDE_ENCODER_FRAME_EVENT_DONE))) {
-
-		ret = pm_runtime_resume(crtc->dev->dev);
-		if (ret < 0) {
-			SDE_ERROR("failed to enable power resource %d\n", ret);
-			SDE_EVT32(ret, SDE_EVTLOG_ERROR);
-		} else {
-			/* log and clear plane ubwc errors if any */
-			drm_for_each_plane_mask(plane, crtc->dev,
-						sde_crtc->plane_mask_old) {
-				ubwc_error = sde_plane_get_ubwc_error(plane);
-				if (ubwc_error) {
-					SDE_EVT32(DRMID(crtc), DRMID(plane),
-					ubwc_error, SDE_EVTLOG_ERROR);
-					SDE_DEBUG("crtc%d plane %d ubwc_error %d\n",
-					DRMID(crtc), DRMID(plane),
-					ubwc_error);
-					sde_plane_clear_ubwc_error(plane);
-				}
-			}
-			pm_runtime_put_sync(crtc->dev->dev);
-		}
-
 		if (atomic_read(&sde_crtc->frame_pending) < 1) {
 			/* this should not happen */
 			SDE_ERROR("crtc%d ts:%lld invalid frame_pending:%d\n",
@@ -3079,12 +3083,11 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 		SDE_ATRACE_END("signal_release_fence");
 	}
 
-	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE) {
+	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE)
 		/* this api should be called without spin_lock */
 		_sde_crtc_retire_event(fevent->connector, fevent->ts,
 				(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR)
 				? SDE_FENCE_SIGNAL_ERROR : SDE_FENCE_SIGNAL);
-	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
@@ -3762,9 +3765,9 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		return;
 	}
 
-	if (!crtc->state->active) {
-		SDE_DEBUG("crtc%d -> active %d, skip atomic_begin\n",
-				crtc->base.id, crtc->state->active);
+	if (!crtc->state->enable) {
+		SDE_DEBUG("crtc%d -> enable %d, skip atomic_begin\n",
+				crtc->base.id, crtc->state->enable);
 		return;
 	}
 
@@ -7146,7 +7149,6 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 			if (!node)
 				return -ENOMEM;
 			INIT_LIST_HEAD(&node->list);
-			INIT_LIST_HEAD(&node->irq.list);
 			node->func = custom_events[i].func;
 			node->event = event;
 			node->state = IRQ_NOINIT;
@@ -7171,6 +7173,8 @@ static int _sde_crtc_event_enable(struct sde_kms *kms,
 			kfree(node);
 			return ret;
 		}
+
+		INIT_LIST_HEAD(&node->irq.list);
 
 		mutex_lock(&crtc->crtc_lock);
 		ret = node->func(crtc_drm, true, &node->irq);
