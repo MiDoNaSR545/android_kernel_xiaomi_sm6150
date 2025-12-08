@@ -108,16 +108,8 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 	local_irq_restore(*flags);
 }
 
-#ifdef CONFIG_HZ_300
-/*
- * Tick interval becomes to 3333333 due to
- * rounding error when HZ=300.
- */
-#define MIN_SCHED_RAVG_WINDOW (3333333 * 6)
-#else
-/* Min window size (in ns) = 20ms */
-#define MIN_SCHED_RAVG_WINDOW 20000000
-#endif
+/* Default window size (in ns) = 8ms */
+#define DEFAULT_SCHED_RAVG_WINDOW 8000000
 
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
@@ -150,8 +142,7 @@ __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_MAX_RECENT_AVG;
 
 /* Window size (in ns) */
-__read_mostly unsigned int sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
-__read_mostly unsigned int new_sched_ravg_window = MIN_SCHED_RAVG_WINDOW;
+__read_mostly unsigned int sched_ravg_window = DEFAULT_SCHED_RAVG_WINDOW;
 
 /*
  * A after-boot constant divisor for cpu_util_freq_walt() to apply the load
@@ -162,6 +153,7 @@ __read_mostly unsigned int walt_cpu_util_freq_divisor;
 /* Initial task load. Newly created tasks are assigned this load. */
 unsigned int __read_mostly sched_init_task_load_windows;
 unsigned int __read_mostly sched_init_task_load_windows_scaled;
+unsigned int __read_mostly sysctl_sched_init_task_load_pct = 15;
 
 /*
  * Maximum possible frequency across all cpus. Task demand and cpu
@@ -191,11 +183,11 @@ unsigned int __read_mostly sched_disable_window_stats;
  * The entire range of load from 0 to sched_ravg_window needs to be covered
  * in NUM_LOAD_INDICES number of buckets. Therefore the size of each bucket
  * is given by sched_ravg_window / NUM_LOAD_INDICES. Since the default value
- * of sched_ravg_window is MIN_SCHED_RAVG_WINDOW, use that to compute
+ * of sched_ravg_window is DEFAULT_SCHED_RAVG_WINDOW, use that to compute
  * sched_load_granule.
  */
 __read_mostly unsigned int sched_load_granule =
-			MIN_SCHED_RAVG_WINDOW / NUM_LOAD_INDICES;
+			DEFAULT_SCHED_RAVG_WINDOW / NUM_LOAD_INDICES;
 /* Size of bitmaps maintained to track top tasks */
 static const unsigned int top_tasks_bitmap_size =
 		BITS_TO_LONGS(NUM_LOAD_INDICES + 1) * sizeof(unsigned long);
@@ -212,7 +204,7 @@ static int __init set_sched_ravg_window(char *str)
 
 	get_option(&str, &window_size);
 
-	if (window_size < MIN_SCHED_RAVG_WINDOW ||
+	if (window_size < DEFAULT_SCHED_RAVG_WINDOW ||
 			window_size > MAX_SCHED_RAVG_WINDOW) {
 		WARN_ON(1);
 		return -EINVAL;
@@ -3071,13 +3063,6 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
 }
 
-static void walt_init_window_dep(void);
-static void walt_tunables_fixup(void)
-{
-	walt_init_window_dep();
-}
-
-extern int kp_active_mode(void);
 /*
  * Runs in hard-irq context. This should ideally run just after the latest
  * window roll-over.
@@ -3162,34 +3147,6 @@ void walt_irq_work(struct irq_work *irq_work)
 				cpufreq_update_util(cpu_rq(cpu), flag |
 							SCHED_CPUFREQ_CONTINUE);
 			i++;
-		}
-	}
-
-	/*
-	 * If the window change request is in pending, good place to
-	 * change sched_ravg_window since all rq locks are acquired.
-	 */
-	if (!is_migration) {
-		if ((kp_active_mode() == 3 && sched_ravg_window != 3000000) ||
-			(kp_active_mode() == 1 && sched_ravg_window != 12000000) ||
-			((kp_active_mode() == 0 || kp_active_mode() == 2) &&
-			sched_ravg_window != 6000000)) {
-			switch (kp_active_mode()) {
-			case 1:
-				new_sched_ravg_window == 16000000;
-			case 3:
-				new_sched_ravg_window == 3000000;
-			default:
-				new_sched_ravg_window == 6000000;
-			}
-		}
-
-		if (sched_ravg_window != new_sched_ravg_window) {
-			printk_deferred("ALERT: changing window size from %u to %u\n",
-					sched_ravg_window,
-					new_sched_ravg_window);
-			sched_ravg_window = new_sched_ravg_window;
-			walt_tunables_fixup();
 		}
 	}
 
@@ -3284,39 +3241,21 @@ int walt_proc_update_handler(struct ctl_table *table, int write,
 	return ret;
 }
 
-static void walt_init_window_dep(void)
-{
-	walt_cpu_util_freq_divisor =
-	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
-	walt_scale_demand_divisor = sched_ravg_window >> SCHED_CAPACITY_SHIFT;
-
-	unsigned int init_task_load_pct;
-
-	switch (kp_active_mode()) {
-	case 3:
-		init_task_load_pct = 25;
-		break;
-	case 1:
-		init_task_load_pct = 5;
-		break;
-	default:
-		init_task_load_pct = 15;
-		break;
-	}
-
-	sched_init_task_load_windows =
-		div64_u64((u64)init_task_load_pct *
-			  (u64)sched_ravg_window, 100);
-	sched_init_task_load_windows_scaled =
-		scale_demand(sched_init_task_load_windows);
-}
-
 static void walt_init_once(void)
 {
 	init_irq_work(&walt_migration_irq_work, walt_irq_work);
 	init_irq_work(&walt_cpufreq_irq_work, walt_irq_work);
 	walt_rotate_work_init();
-	walt_init_window_dep();
+
+	walt_cpu_util_freq_divisor =
+	    (sched_ravg_window >> SCHED_CAPACITY_SHIFT) * 100;
+	walt_scale_demand_divisor = sched_ravg_window >> SCHED_CAPACITY_SHIFT;
+
+	sched_init_task_load_windows =
+		div64_u64((u64)sysctl_sched_init_task_load_pct *
+			  (u64)sched_ravg_window, 100);
+	sched_init_task_load_windows_scaled =
+		scale_demand(sched_init_task_load_windows);
 }
 
 void walt_sched_init_rq(struct rq *rq)
