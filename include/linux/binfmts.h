@@ -158,18 +158,15 @@ static inline bool task_is_booster(struct task_struct *tsk)
 	return !strcmp(comm, "init") || !strcmp(comm, "NodeLooperThrea") ||
 	       !strcmp(comm, "power@1.2-servi") ||
 	       !strcmp(comm, "power@1.3-servi") ||
+	       !strcmp(comm, "are.power-servi") ||
 	       !strcmp(comm, "perf@1.0-servic") ||
 	       !strcmp(comm, "perf@2.0-servic") ||
 	       !strcmp(comm, "perf@2.1-servic") ||
 	       !strcmp(comm, "perf@2.2-servic") ||
 	       !strcmp(comm, "power@2.0-servic") ||
-	       !strcmp(comm, "iop@") ||
 	       !strcmp(comm, "perf2-hal-servi") ||
 	       !strcmp(comm, "init.qcom.post_") ||
-	       !strcmp(comm, "PERFD-SERVER") ||
-	       !strcmp(comm, "mtkPowerMsgHdl") ||
-	       !strcmp(comm, "mtkPowerService") ||
-	       !strncmp(comm, "system_perf_ini", 9);
+	       !strcmp(comm, "PERFD-SERVER");
 }
 
 #endif /* _LINUX_BINFMTS_H */
