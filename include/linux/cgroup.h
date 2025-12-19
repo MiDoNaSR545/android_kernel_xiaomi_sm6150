@@ -785,8 +785,6 @@ void cgroup_sk_free(struct sock_cgroup_data *skcd);
 
 static inline struct cgroup *sock_cgroup_ptr(struct sock_cgroup_data *skcd)
 {
-#if defined(CONFIG_CGROUP_NET_PRIO) || defined(CONFIG_CGROUP_NET_CLASSID) || \
-    defined(CONFIG_SOCK_CGROUP_DATA)
 	unsigned long v;
 
 	/*
@@ -799,9 +797,6 @@ static inline struct cgroup *sock_cgroup_ptr(struct sock_cgroup_data *skcd)
 		return &cgrp_dfl_root.cgrp;
 
 	return (struct cgroup *)(unsigned long)v ?: &cgrp_dfl_root.cgrp;
-#else
-	return (struct cgroup *)(unsigned long)skcd->val;
-#endif
 }
 
 #else	/* CONFIG_CGROUP_DATA */
