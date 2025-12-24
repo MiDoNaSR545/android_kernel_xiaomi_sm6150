@@ -26,6 +26,8 @@
 #include <linux/printk.h>
 #include <linux/hrtimer.h>
 #include <linux/of.h>
+#include <linux/binfmts.h>
+#include <linux/string.h>
 #include "governor.h"
 
 static struct class *devfreq_class;
@@ -42,6 +44,26 @@ static LIST_HEAD(devfreq_governor_list);
 /* The list of all device-devfreq */
 static LIST_HEAD(devfreq_list);
 static DEFINE_MUTEX(devfreq_list_lock);
+
+static inline bool devfreq_is_kgsl_gpu(struct devfreq *df)
+{
+	const char *name;
+
+	if (!df)
+		return false;
+
+	name = dev_name(&df->dev);
+	if (name && strstr(name, "kgsl-3d0"))
+		return true;
+
+	if (df->dev.parent) {
+		name = dev_name(df->dev.parent);
+		if (name && strstr(name, "kgsl-3d0"))
+			return true;
+	}
+
+	return false;
+}
 
 /**
  * find_device_devfreq() - find devfreq struct using device pointer
@@ -1175,6 +1197,13 @@ static ssize_t max_freq_store(struct device *dev, struct device_attribute *attr,
 	ret = sscanf(buf, "%lu", &value);
 	if (ret != 1)
 		return -EINVAL;
+
+	/*
+	 * Don't allow init/power HAL/perf daemons to clamp the
+	 * KGSL GPU devfreq max frequency.
+	 */
+	if (devfreq_is_kgsl_gpu(df) && task_is_booster(current))
+		return -EPERM;
 
 	mutex_lock(&df->event_lock);
 	mutex_lock(&df->lock);
