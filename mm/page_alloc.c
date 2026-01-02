@@ -4188,14 +4188,13 @@ restart:
 			atomic_long_inc(&kshrinkd_waiters);
 			woke_kshrinkd = true;
 		}
-		wake_all_kswapds(order, ac);
 		if (!woke_kswapd) {
 			atomic_long_inc(&kswapd_waiters);
 			woke_kswapd = true;
 		}
 		if (!used_vmpressure)
 			used_vmpressure = vmpressure_inc_users(order);
-		wake_all_kswapds(order, gfp_mask, ac);
+		wake_all_kswapds(order, ac);
 	}
 
 	/*
