@@ -6,5 +6,3 @@ lib-y		:= clear_user.o delay.o copy_from_user.o		\
 		   strnlen.o strchr.o strrchr.o tishift.o
 
 lib-$(CONFIG_ARCH_HAS_UACCESS_FLUSHCACHE) += uaccess_flushcache.o
-
-obj-$(CONFIG_CRC32) += crc32.o
