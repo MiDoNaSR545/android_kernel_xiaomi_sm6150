@@ -17,6 +17,9 @@
 #include <linux/err.h>
 #include "cam_io_util.h"
 #include "cam_debug_util.h"
+#ifndef writel_relaxed_no_log
+#define writel_relaxed_no_log(data, addr) writel_relaxed((data), (addr))
+#endif
 
 int cam_io_w(uint32_t data, void __iomem *addr)
 {
