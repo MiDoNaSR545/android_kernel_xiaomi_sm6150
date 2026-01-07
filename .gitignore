@@ -39,6 +39,7 @@
 *.symtypes
 *.tar
 *.xz
+*.zip
 Module.symvers
 modules.builtin
 
@@ -136,7 +137,7 @@ clang/
 gcc64/
 gcc32/
 out/
-
+build.log
 # Ignore KernelSU folders
 KernelSU/
 drivers/kernelsu
