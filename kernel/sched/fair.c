@@ -99,7 +99,7 @@ unsigned int sysctl_sched_sync_hint_enable = 1;
 /*
  * Enable/disable using cstate knowledge in idle sibling selection
  */
-const_debug unsigned int sysctl_sched_cstate_aware = 0;
+unsigned int sysctl_sched_cstate_aware = 1;
 
 /*
  * The initial- and re-scaling of tunables is configurable
