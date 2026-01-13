@@ -625,9 +625,6 @@ static void sugov_work(struct kthread_work *work)
 	mutex_lock(&sg_policy->work_lock);
 	__cpufreq_driver_target(sg_policy->policy, freq, CPUFREQ_RELATION_L);
 	mutex_unlock(&sg_policy->work_lock);
-
-	if (use_pelt())
-		sg_policy->work_in_progress = false;
 }
 
 static void sugov_irq_work(struct irq_work *irq_work)
@@ -834,7 +831,6 @@ static int sugov_init(struct cpufreq_policy *policy)
 
 	policy->governor_data = sg_policy;
 	sg_policy->tunables = tunables;
-	stale_ns = sched_ravg_window + (sched_ravg_window >> 3);
 
 	ret = kobject_init_and_add(&tunables->attr_set.kobj, &sugov_tunables_ktype,
 				   get_governor_parent_kobj(policy), "%s",
