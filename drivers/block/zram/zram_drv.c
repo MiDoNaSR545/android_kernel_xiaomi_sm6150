@@ -1723,10 +1723,12 @@ static ssize_t disksize_store(struct device *dev,
 	struct zcomp *comp;
 	struct zram *zram = dev_to_zram(dev);
 	int err;
+	struct sysinfo i;
 
-	disksize = memparse(buf, NULL);
-	if (!disksize)
-		return -EINVAL;
+	si_meminfo(&i);
+	disksize = (u64)i.totalram * PAGE_SIZE;
+	disksize = (disksize * 8) / 10;
+	pr_info("Overriding zram size to %llu", disksize);
 
 	down_write(&zram->init_lock);
 	if (init_done(zram)) {
