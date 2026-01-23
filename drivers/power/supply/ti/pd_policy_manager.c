@@ -275,7 +275,10 @@ static bool pd_get_bms_digest_verified(struct usbpd_pm *pdpm)
 
 	pr_err("battery verify is: %d\n", pval.intval);
 
-	return true;
+	if (pval.intval == 1)
+		return true;
+	else
+		return false;
 }
 
 /* get pd pps charger verified result  */
