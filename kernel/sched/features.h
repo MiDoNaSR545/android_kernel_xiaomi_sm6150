@@ -10,6 +10,7 @@
  * Give new tasks half a slice to ease into the competition.
  */
 #define SCHED_FEAT_PLACE_DEADLINE_INITIAL 0
+#define SCHED_FEAT_PLACE_REL_DEADLINE 0
 /*
  * Inhibit (wakeup) preemption until the current task has either matched the
  * 0-lag point or until is has exhausted it's slice.
