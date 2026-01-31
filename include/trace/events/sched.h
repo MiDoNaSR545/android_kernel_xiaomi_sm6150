@@ -981,7 +981,6 @@ TRACE_EVENT(sched_load_cfs_rq,
 		__entry->cpu	= __trace_sched_cpu(cfs_rq, NULL);
 		__trace_sched_path(cfs_rq, __get_dynamic_array(path),
 				   __get_dynamic_array_len(path));
-		__entry->load	= cfs_rq->runnable_load_avg;
 		__entry->util	= cfs_rq->avg.util_avg;
 		__entry->util_pelt = cfs_rq->avg.util_avg;
 		__entry->util_walt = 0;
@@ -1455,28 +1454,6 @@ TRACE_EVENT(sched_util_est_cpu,
 		  __entry->cpu,
 		  __entry->util_avg,
 		  __entry->util_est_enqueued)
-);
-
-TRACE_EVENT(sched_capacity_update,
-
-	TP_PROTO(int cpu),
-
-	TP_ARGS(cpu),
-
-	TP_STRUCT__entry(
-		__field(unsigned int, cpu			)
-		__field(unsigned int, capacity			)
-		__field(unsigned int, capacity_orig		)
-	),
-
-	TP_fast_assign(
-		__entry->cpu			= cpu;
-		__entry->capacity		= capacity_of(cpu);
-		__entry->capacity_orig		= capacity_orig_of(cpu);
-	),
-
-	TP_printk("cpu=%d capacity=%u capacity_orig=%u",
-		__entry->cpu, __entry->capacity, __entry->capacity_orig)
 );
 
 TRACE_EVENT(sched_cpu_util,

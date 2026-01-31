@@ -874,7 +874,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	if (!same_freq_domain(new_cpu, task_cpu(p))) {
 		src_rq->notif_pending = true;
 		dest_rq->notif_pending = true;
-		irq_work_queue(&walt_migration_irq_work);
+		sched_irq_work_queue(&walt_migration_irq_work);
 	}
 
 	if (is_ed_enabled()) {
@@ -1953,7 +1953,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
 	if (result == old_window_start)
-		irq_work_queue(&walt_cpufreq_irq_work);
+		sched_irq_work_queue(&walt_cpufreq_irq_work);
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
@@ -3105,7 +3105,7 @@ void walt_map_freq_to_load(void)
 
 			coloc_boost_load = div64_u64(
 				((u64)sched_ravg_window *
-				arch_scale_cpu_capacity(NULL, fcpu) *
+				arch_scale_cpu_capacity(fcpu) *
 				sysctl_sched_little_cluster_coloc_fmin_khz),
 				(u64)1024 * cpu_max_possible_freq(fcpu));
 			coloc_boost_load = div64_u64(coloc_boost_load << 2, 5);
@@ -3217,7 +3217,7 @@ void walt_irq_work(struct irq_work *irq_work)
 						cpu_online_mask);
 		num_cpus = cpumask_weight(&cluster_online_cpus);
 		for_each_cpu(cpu, &cluster_online_cpus) {
-			int flag = SCHED_CPUFREQ_WALT;
+			int flag = 0;
 
 			rq = cpu_rq(cpu);
 
@@ -3295,7 +3295,7 @@ unsigned int walt_get_default_coloc_group_load(void)
 
 	min_cap_cpu = this_rq()->rd->min_cap_orig_cpu;
 	if (min_cap_cpu != -1)
-		scale = arch_scale_cpu_capacity(NULL, min_cap_cpu);
+		scale = arch_scale_cpu_capacity(min_cap_cpu);
 
 	return div64_u64(total_demand * 1024 * 100,
 			(u64)sched_ravg_window * scale);

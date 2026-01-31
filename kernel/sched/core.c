@@ -44,6 +44,8 @@
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
 
+#include "pelt.h"
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
@@ -127,11 +129,12 @@ struct rq *task_rq_lock(struct task_struct *p, struct rq_flags *rf)
 		 *					[L] ->on_rq
 		 *	RELEASE (rq->lock)
 		 *
-		 * If we observe the old cpu in task_rq_lock, the acquire of
+		 * If we observe the old CPU in task_rq_lock(), the acquire of
 		 * the old rq->lock will fully serialize against the stores.
 		 *
-		 * If we observe the new CPU in task_rq_lock, the acquire will
-		 * pair with the WMB to ensure we must then also see migrating.
+		 * If we observe the new CPU in task_rq_lock(), the address
+		 * dependency headed by '[L] rq = task_rq()' and the acquire
+		 * will pair with the WMB to ensure we then also see migrating.
 		 */
 		if (likely(rq == task_rq(p) && !task_on_rq_migrating(p))) {
 			rq_pin_lock(rq, rf);
@@ -155,9 +158,8 @@ static void update_rq_clock_task(struct rq *rq, s64 delta)
  * In theory, the compile should just see 0 here, and optimize out the call
  * to sched_rt_avg_update. But I don't trust it...
  */
-#if defined(CONFIG_IRQ_TIME_ACCOUNTING) || defined(CONFIG_PARAVIRT_TIME_ACCOUNTING)
-	s64 steal = 0, irq_delta = 0;
-#endif
+	s64 __maybe_unused steal = 0, irq_delta = 0;
+
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	irq_delta = irq_time_read(cpu_of(rq)) - rq->prev_irq_time;
 
@@ -197,10 +199,11 @@ static void update_rq_clock_task(struct rq *rq, s64 delta)
 
 	rq->clock_task += delta;
 
-#if defined(CONFIG_IRQ_TIME_ACCOUNTING) || defined(CONFIG_PARAVIRT_TIME_ACCOUNTING)
+#ifdef CONFIG_HAVE_SCHED_AVG_IRQ
 	if ((irq_delta + steal) && sched_feat(NONTASK_CAPACITY))
 		update_irq_load_avg(rq, irq_delta + steal);
 #endif
+	update_rq_clock_pelt(rq, delta);
 }
 
 void update_rq_clock(struct rq *rq)
@@ -261,8 +264,9 @@ static enum hrtimer_restart hrtick(struct hrtimer *timer)
 static void __hrtick_restart(struct rq *rq)
 {
 	struct hrtimer *timer = &rq->hrtick_timer;
+	ktime_t time = rq->hrtick_time;
 
-	hrtimer_start_expires(timer, HRTIMER_MODE_ABS_PINNED);
+	hrtimer_start(timer, time, HRTIMER_MODE_ABS_PINNED);
 }
 
 /*
@@ -287,7 +291,6 @@ static void __hrtick_start(void *arg)
 void hrtick_start(struct rq *rq, u64 delay)
 {
 	struct hrtimer *timer = &rq->hrtick_timer;
-	ktime_t time;
 	s64 delta;
 
 	/*
@@ -295,9 +298,7 @@ void hrtick_start(struct rq *rq, u64 delay)
 	 * doesn't make sense and can cause timer DoS.
 	 */
 	delta = max_t(s64, delay, 10000LL);
-	time = ktime_add_ns(timer->base->get_time(), delta);
-
-	hrtimer_set_expires(timer, time);
+	rq->hrtick_time = ktime_add_ns(timer->base->get_time(), delta);
 
 	if (rq == this_rq()) {
 		__hrtick_restart(rq);
@@ -524,27 +525,32 @@ void resched_cpu(int cpu)
  */
 int get_nohz_timer_target(void)
 {
-	int i, cpu = smp_processor_id();
+	int i, cpu = smp_processor_id(), default_cpu = -1;
 	struct sched_domain *sd;
 
-	if (!idle_cpu(cpu) && is_housekeeping_cpu(cpu))
-		return cpu;
+	if (is_housekeeping_cpu(cpu)) {
+		if (!idle_cpu(cpu))
+			return cpu;
+		default_cpu = cpu;
+	}
 
 	rcu_read_lock();
 	for_each_domain(cpu, sd) {
-		for_each_cpu(i, sched_domain_span(sd)) {
+		for_each_cpu_and(i, sched_domain_span(sd),
+			housekeeping_cpumask()) {
 			if (cpu == i)
 				continue;
 
-			if (!idle_cpu(i) && is_housekeeping_cpu(i)) {
+			if (!idle_cpu(i)) {
 				cpu = i;
 				goto unlock;
 			}
 		}
 	}
 
-	if (!is_housekeeping_cpu(cpu))
-		cpu = housekeeping_any_cpu();
+	if (default_cpu == -1)
+		default_cpu = housekeeping_any_cpu();
+	cpu = default_cpu;
 unlock:
 	rcu_read_unlock();
 	return cpu;
@@ -734,7 +740,7 @@ int tg_nop(struct task_group *tg, void *data)
 }
 #endif
 
-static void set_load_weight(struct task_struct *p)
+static void set_load_weight(struct task_struct *p, bool update_load)
 {
 	int prio = p->static_prio - MAX_RT_PRIO;
 	struct load_weight *load = &p->se.load;
@@ -745,11 +751,21 @@ static void set_load_weight(struct task_struct *p)
 	if (task_has_idle_policy(p)) {
 		load->weight = scale_load(WEIGHT_IDLEPRIO);
 		load->inv_weight = WMULT_IDLEPRIO;
+		p->se.runnable_weight = load->weight;
 		return;
 	}
 
-	load->weight = scale_load(sched_prio_to_weight[prio]);
-	load->inv_weight = sched_prio_to_wmult[prio];
+	/*
+	 * SCHED_OTHER tasks have to update their load when changing their
+	 * weight
+	 */
+	if (update_load && p->sched_class == &fair_sched_class) {
+		reweight_task(p, prio);
+	} else {
+		load->weight = scale_load(sched_prio_to_weight[prio]);
+		load->inv_weight = sched_prio_to_wmult[prio];
+		p->se.runnable_weight = load->weight;
+	}
 }
 
 #ifdef CONFIG_UCLAMP_TASK
@@ -766,7 +782,7 @@ static void set_load_weight(struct task_struct *p)
 static DEFINE_MUTEX(uclamp_mutex);
 
 /* Max allowed minimum utilization */
-unsigned int sysctl_sched_uclamp_util_min = 128;
+unsigned int sysctl_sched_uclamp_util_min = SCHED_CAPACITY_SCALE;
 
 /* Max allowed maximum utilization */
 unsigned int sysctl_sched_uclamp_util_max = SCHED_CAPACITY_SCALE;
@@ -1698,7 +1714,7 @@ static struct rq *move_queued_task(struct rq *rq, struct rq_flags *rf,
 {
 	lockdep_assert_held(&rq->lock);
 
-	p->on_rq = TASK_ON_RQ_MIGRATING;
+	WRITE_ONCE(p->on_rq, TASK_ON_RQ_MIGRATING);
 	dequeue_task(rq, p, DEQUEUE_NOCLOCK);
 #ifdef CONFIG_SCHED_WALT
 	double_lock_balance(rq, cpu_rq(new_cpu));
@@ -2706,15 +2722,11 @@ void wake_up_if_idle(int cpu)
 	if (!is_idle_task(rcu_dereference(rq->curr)))
 		goto out;
 
-	if (set_nr_if_polling(rq->idle)) {
-		trace_sched_wake_idle_without_ipi(cpu);
-	} else {
-		rq_lock_irqsave(rq, &rf);
-		if (is_idle_task(rq->curr))
-			smp_send_reschedule(cpu);
-		/* Else CPU is not idle, do nothing here: */
-		rq_unlock_irqrestore(rq, &rf);
-	}
+	rq_lock_irqsave(rq, &rf);
+	if (is_idle_task(rq->curr))
+		resched_curr(rq);
+	/* Else CPU is not idle, do nothing here: */
+	rq_unlock_irqrestore(rq, &rf);
 
 out:
 	rcu_read_unlock();
@@ -3098,9 +3110,7 @@ out:
 	if (success && sched_predl) {
 		raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
 		if (do_pl_notif(cpu_rq(cpu)))
-			cpufreq_update_util(cpu_rq(cpu),
-					    SCHED_CPUFREQ_WALT |
-					    SCHED_CPUFREQ_PL);
+			cpufreq_update_util(cpu_rq(cpu), SCHED_CPUFREQ_PL);
 		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
 	}
 #endif
@@ -3203,6 +3213,9 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
 	p->last_sleep_ts		= 0;
+
+	p->se.vlag			= 0;
+	p->se.slice			= sysctl_sched_base_slice;
 
 	INIT_LIST_HEAD(&p->se.group_node);
 
@@ -3402,7 +3415,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 			p->static_prio = NICE_TO_PRIO(0);
 
 		p->prio = p->normal_prio = __normal_prio(p);
-		set_load_weight(p);
+		set_load_weight(p, false);
 
 		/*
 		 * We don't need the reset flag anymore after the fork. It has
@@ -3502,6 +3515,7 @@ void wake_up_new_task(struct task_struct *p)
 	 * Use __set_task_cpu() to avoid calling sched_class::migrate_task_rq,
 	 * as we're not fully set-up yet.
 	 */
+	p->recent_used_cpu = task_cpu(p);
 	__set_task_cpu(p, select_task_rq(p, task_cpu(p), SD_BALANCE_FORK, 0, 1));
 #endif
 	rq = __task_rq_lock(p, &rf);
@@ -4081,15 +4095,13 @@ void scheduler_tick(void)
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
-	cpu_load_update_active(rq);
 	calc_global_load_tick(rq);
 	psi_task_tick(rq);
 
 	early_notif = early_detection_notify(rq, wallclock);
 	if (early_notif)
-		flag = SCHED_CPUFREQ_WALT | SCHED_CPUFREQ_EARLY_DET;
+		cpufreq_update_util(rq, SCHED_CPUFREQ_EARLY_DET);
 
-	cpufreq_update_util(rq, flag);
 	rq_unlock(rq, &rf);
 
 	perf_event_task_tick();
@@ -4955,22 +4967,22 @@ void set_user_nice(struct task_struct *p, long nice)
 		put_prev_task(rq, p);
 
 	p->static_prio = NICE_TO_PRIO(nice);
-	set_load_weight(p);
+	set_load_weight(p, true);
 	old_prio = p->prio;
 	p->prio = effective_prio(p);
 	delta = p->prio - old_prio;
 
-	if (queued) {
+	if (queued)
 		enqueue_task(rq, p, ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
-		/*
-		 * If the task increased its priority or is running and
-		 * lowered its priority, then reschedule its CPU:
-		 */
-		if (delta < 0 || (delta > 0 && task_running(rq, p)))
-			resched_curr(rq);
-	}
 	if (running)
 		set_curr_task(rq, p);
+
+	/*
+	 * If the task increased its priority or is running and
+	 * lowered its priority, then reschedule its CPU:
+	 */
+	p->sched_class->prio_changed(rq, p, old_prio);
+
 out_unlock:
 	task_rq_unlock(rq, p, &rf);
 }
@@ -5131,7 +5143,7 @@ static void __setscheduler_params(struct task_struct *p,
 	 */
 	p->rt_priority = attr->sched_priority;
 	p->normal_prio = normal_prio(p);
-	set_load_weight(p);
+	set_load_weight(p, true);
 }
 
 /* Actually do priority change: must hold pi & rq lock. */
@@ -5643,6 +5655,16 @@ err_size:
 	return -E2BIG;
 }
 
+static void get_params(struct task_struct *p, struct sched_attr *attr)
+{
+	if (task_has_dl_policy(p))
+		__getparam_dl(p, attr);
+	else if (task_has_rt_policy(p))
+		attr->sched_priority = p->rt_priority;
+	else
+		attr->sched_nice = task_nice(p);
+}
+
 /**
  * sys_sched_setscheduler - set/change the scheduler policy and RT priority
  * @pid: the pid in question.
@@ -5852,12 +5874,7 @@ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
 	kattr.sched_policy = p->policy;
 	if (p->sched_reset_on_fork)
 		kattr.sched_flags |= SCHED_FLAG_RESET_ON_FORK;
-	if (task_has_dl_policy(p))
-		__getparam_dl(p, &kattr);
-	else if (task_has_rt_policy(p))
-		kattr.sched_priority = p->rt_priority;
-	else
-		kattr.sched_nice = task_nice(p);
+	get_params(p, &kattr);
 
 #ifdef CONFIG_UCLAMP_TASK
 	/*
@@ -6904,8 +6921,6 @@ int do_isolation_work_cpu_stop(void *data)
 	struct rq *rq = cpu_rq(cpu);
 	struct rq_flags rf;
 
-	watchdog_disable(cpu);
-
 	local_irq_disable();
 
 	irq_migrate_all_off_this_cpu();
@@ -7052,7 +7067,10 @@ int sched_isolate_cpu(int cpu)
 	smp_call_function_any(&avail_cpus, hrtimer_quiesce_cpu, &cpu, 1);
 	smp_call_function_any(&avail_cpus, timer_quiesce_cpu, &cpu, 1);
 
+	watchdog_disable(cpu);
+	irq_lock_sparse();
 	stop_cpus(cpumask_of(cpu), do_isolation_work_cpu_stop, 0);
+	irq_unlock_sparse();
 
 	calc_load_migrate(rq);
 	update_max_interval();
@@ -7556,7 +7574,7 @@ void __init sched_init(void)
 
 	BUG_ON(alloc_related_thread_groups());
 
-	set_load_weight(&init_task);
+	set_load_weight(&init_task, false);
 
 	/*
 	 * The boot idle thread does lazy MMU switching as well:
@@ -7981,15 +7999,9 @@ static int find_capacity_margin_levels(void)
 }
 
 static void sched_update_up_migrate_values(int cap_margin_levels,
-			const struct cpumask *cluster_cpus[], bool boosted)
+				const struct cpumask *cluster_cpus[])
 {
 	int i, cpu;
-	unsigned int *sched_capacity_margin_up_array = boosted ?
-			sched_capacity_margin_up_boosted :
-			sched_capacity_margin_up,
-		     *sysctl_sched_capacity_margin_up_array = boosted ?
-			sysctl_sched_capacity_margin_up_boosted :
-			sysctl_sched_capacity_margin_up;
 
 	if (cap_margin_levels > 1) {
 		/*
@@ -7999,25 +8011,19 @@ static void sched_update_up_migrate_values(int cap_margin_levels,
 		for (i = 0; i < cap_margin_levels; i++)
 			if (cluster_cpus[i])
 				for_each_cpu(cpu, cluster_cpus[i])
-				    sched_capacity_margin_up_array[cpu] =
-				    sysctl_sched_capacity_margin_up_array[i];
+					sched_capacity_margin_up[cpu] =
+					sysctl_sched_capacity_margin_up[i];
 	} else {
 		for_each_possible_cpu(cpu)
-			sched_capacity_margin_up_array[cpu] =
-				sysctl_sched_capacity_margin_up_array[0];
+			sched_capacity_margin_up[cpu] =
+				sysctl_sched_capacity_margin_up[0];
 	}
 }
 
 static void sched_update_down_migrate_values(int cap_margin_levels,
-			const struct cpumask *cluster_cpus[], bool boosted)
+				const struct cpumask *cluster_cpus[])
 {
 	int i, cpu;
-	unsigned int *sched_capacity_margin_down_array = boosted ?
-			sched_capacity_margin_down_boosted :
-			sched_capacity_margin_down,
-		      *sysctl_sched_capacity_margin_down_array = boosted ?
-			sysctl_sched_capacity_margin_down_boosted :
-			sysctl_sched_capacity_margin_down;
 
 	if (cap_margin_levels > 1) {
 		/*
@@ -8026,23 +8032,20 @@ static void sched_update_down_migrate_values(int cap_margin_levels,
 		for (i = 0; i < cap_margin_levels; i++)
 			if (cluster_cpus[i+1])
 				for_each_cpu(cpu, cluster_cpus[i+1])
-				    sched_capacity_margin_down_array[cpu] =
-				    sysctl_sched_capacity_margin_down_array[i];
+					sched_capacity_margin_down[cpu] =
+					sysctl_sched_capacity_margin_down[i];
 	} else {
 		for_each_possible_cpu(cpu)
-			sched_capacity_margin_down_array[cpu] =
-				sysctl_sched_capacity_margin_down_array[0];
+			sched_capacity_margin_down[cpu] =
+				sysctl_sched_capacity_margin_down[0];
 	}
 }
 
 static void sched_update_updown_migrate_values(unsigned int *data,
-					    int cap_margin_levels, bool boosted)
+					      int cap_margin_levels)
 {
 	int i, cpu;
 	static const struct cpumask *cluster_cpus[MAX_CLUSTERS];
-	unsigned int *sysctl_sched_capacity_margin_up_array = boosted ?
-			sysctl_sched_capacity_margin_up_boosted :
-			sysctl_sched_capacity_margin_up;
 
 	for (i = cpu = 0; (!cluster_cpus[i]) &&
 				cpu < num_possible_cpus(); i++) {
@@ -8050,29 +8053,22 @@ static void sched_update_updown_migrate_values(unsigned int *data,
 		cpu += cpumask_weight(topology_core_cpumask(cpu));
 	}
 
-	if (data == &sysctl_sched_capacity_margin_up_array[0])
-		sched_update_up_migrate_values(cap_margin_levels,
-					       cluster_cpus, boosted);
+	if (data == &sysctl_sched_capacity_margin_up[0])
+		sched_update_up_migrate_values(cap_margin_levels, cluster_cpus);
 	else
 		sched_update_down_migrate_values(cap_margin_levels,
-						 cluster_cpus, boosted);
+						 cluster_cpus);
 }
 
-static int __sched_updown_migrate_handler(struct ctl_table *table, int write,
+int sched_updown_migrate_handler(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,
-				 loff_t *ppos, bool boosted)
+				 loff_t *ppos)
 {
 	int ret, i;
 	unsigned int *data = (unsigned int *)table->data;
 	unsigned int *old_val;
 	static DEFINE_MUTEX(mutex);
 	static int cap_margin_levels = -1;
-	unsigned int *sysctl_sched_capacity_margin_up_array = boosted ?
-			sysctl_sched_capacity_margin_up_boosted :
-			sysctl_sched_capacity_margin_up,
-		     *sysctl_sched_capacity_margin_down_array = boosted ?
-			sysctl_sched_capacity_margin_down_boosted :
-			sysctl_sched_capacity_margin_down;
 
 	mutex_lock(&mutex);
 
@@ -8113,15 +8109,15 @@ static int __sched_updown_migrate_handler(struct ctl_table *table, int write,
 	}
 
 	for (i = 0; i < cap_margin_levels; i++) {
-		if (sysctl_sched_capacity_margin_up_array[i] >
-				sysctl_sched_capacity_margin_down_array[i]) {
+		if (sysctl_sched_capacity_margin_up[i] >
+				sysctl_sched_capacity_margin_down[i]) {
 			memcpy(data, old_val, table->maxlen);
 			ret = -EINVAL;
 			goto free_old_val;
 		}
 	}
 
-	sched_update_updown_migrate_values(data, cap_margin_levels, boosted);
+	sched_update_updown_migrate_values(data, cap_margin_levels);
 
 free_old_val:
 	kfree(old_val);
@@ -8129,22 +8125,6 @@ unlock_mutex:
 	mutex_unlock(&mutex);
 
 	return ret;
-}
-
-int sched_updown_migrate_handler(struct ctl_table *table, int write,
-				 void __user *buffer, size_t *lenp,
-				 loff_t *ppos)
-{
-	return __sched_updown_migrate_handler(table, write, buffer,
-					      lenp, ppos, false);
-}
-
-int sched_updown_migrate_handler_boosted(struct ctl_table *table, int write,
-				 void __user *buffer, size_t *lenp,
-				 loff_t *ppos)
-{
-	return __sched_updown_migrate_handler(table, write, buffer,
-					      lenp, ppos, true);
 }
 #endif
 
@@ -8623,7 +8603,7 @@ static void uclamp_set(struct cgroup_subsys_state *css)
 				tgt.uclamp_boosted, tgt.cpu_shares);
 #else
                         pr_info("uclamp_assist: setting values for %s: uclamp_min=%s uclamp_max=%s" 
-				"uclamp_latency_sensitive=%d\n uclamp_boosted=%d"
+				"uclamp_latency_sensitive=%d\n uclamp_boosted=%d",
                                 tgt.name, tgt.uclamp_min, tgt.uclamp_max, tgt.uclamp_latency_sensitive,
 				tgt.uclamp_boosted);
 #endif

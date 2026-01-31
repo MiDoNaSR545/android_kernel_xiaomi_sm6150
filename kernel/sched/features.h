@@ -1,33 +1,30 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Only give sleepers 50% of their service deficit. This allows
- * them to run sooner, but does not allow tons of sleepers to
- * rip the spread apart.
- */
-#define SCHED_FEAT_GENTLE_FAIR_SLEEPERS 0
 
+#define SCHED_FEAT_ENFORCE_ELIGIBILITY 0
 /*
- * Place new tasks ahead so that they do not starve already running
- * tasks
+ * Using the avg_vruntime, do the right thing and preserve lag across
+ * sleep+wake cycles. EEVDF placement strategy #1, #2 if disabled.
  */
-#define SCHED_FEAT_START_DEBIT 1
+#define SCHED_FEAT_PLACE_LAG 0
+/*
+ * Give new tasks half a slice to ease into the competition.
+ */
+#define SCHED_FEAT_PLACE_DEADLINE_INITIAL 1
+/*
+ * Inhibit (wakeup) preemption until the current task has either matched the
+ * 0-lag point or until is has exhausted it's slice.
+ */
+#define SCHED_FEAT_RUN_TO_PARITY 0
 
 /*
  * Prefer to schedule the task we woke last (assuming it failed
  * wakeup-preemption), since its likely going to consume data we
  * touched, increases cache locality.
  */
-#define SCHED_FEAT_NEXT_BUDDY 1
+#define SCHED_FEAT_NEXT_BUDDY 0
 
 /*
- * Prefer to schedule the task that ran last (when we did
- * wake-preempt) as that likely will touch the same data, increases
- * cache locality.
- */
-#define SCHED_FEAT_LAST_BUDDY 1
-
-/*
- * Consider buddies to be cache hot, decreases the likelyness of a
+ * Consider buddies to be cache hot, decreases the likeliness of a
  * cache buddy being migrated away, increases cache locality.
  */
 #define SCHED_FEAT_CACHE_HOT_BUDDY 1
@@ -39,12 +36,11 @@
 
 #define SCHED_FEAT_HRTICK 0
 #define SCHED_FEAT_DOUBLE_TICK 0
-#define SCHED_FEAT_LB_BIAS 0
 
 /*
  * Decrement CPU capacity based on time not spent running tasks
  */
-#define SCHED_FEAT_NONTASK_CAPACITY 0
+#define SCHED_FEAT_NONTASK_CAPACITY 1
 
 /*
  * Queue remote wakeups on the target CPU and process them
@@ -65,7 +61,7 @@
  */
 #define SCHED_FEAT_WARN_DOUBLE_CLOCK 0
 
-#ifdef HAVE_RT_PUSH_IPI
+#if defined(CONFIG_IRQ_WORK) && defined(CONFIG_SMP)
 /*
  * In order to avoid a thundering herd attack of CPUs that are
  * lowering their priorities at the same time, and there being
@@ -80,7 +76,7 @@
 #define SCHED_FEAT_RT_PUSH_IPI 0
 #endif
 
-#define SCHED_FEAT_RT_RUNTIME_SHARE 0
+#define SCHED_FEAT_RT_RUNTIME_SHARE 1
 #define SCHED_FEAT_LB_MIN 0
 #define SCHED_FEAT_ATTACH_AGE_LOAD 1
 
@@ -118,7 +114,7 @@
  *   ON: If the target CPU saves any energy, use that.
  *   OFF: Use whichever of target or backup saves most.
  */
-#define SCHED_FEAT_EAS_PREFER_IDLE 0
+#define SCHED_FEAT_EAS_PREFER_IDLE 1
 #define SCHED_FEAT_FIND_BEST_TARGET 1
 #define SCHED_FEAT_FBT_STRICT_ORDER 0
 
@@ -132,6 +128,3 @@
  * RT class.
  */
 #define SCHED_FEAT_SCHEDTUNE_BOOST_HOLD_ALL 0
-
-#define SCHED_FEAT_ALT_PERIOD 0
-#define SCHED_FEAT_BASE_SLICE 1
