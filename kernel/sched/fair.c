@@ -5969,9 +5969,15 @@ static int sched_idle_rq(struct rq *rq)
 			rq->nr_running);
 }
 
-static int sched_idle_cpu(int cpu)
+static int choose_sched_idle_rq(struct rq *rq, struct task_struct *p)
 {
-	return sched_idle_rq(cpu_rq(cpu));
+	return sched_idle_rq(rq) && !task_has_idle_policy(p);
+}
+
+static int choose_idle_cpu(int cpu, struct task_struct *p)
+{
+	return available_idle_cpu(cpu) ||
+	       choose_sched_idle_rq(cpu_rq(cpu), p);
 }
 
 /*
@@ -6424,6 +6430,7 @@ struct energy_env {
 	 */
 	struct _eenv_debug *debug;
 #endif
+
 	/*
 	 * Index (into energy_env::cpu) of the morst energy efficient CPU for
 	 * the specified energy_env::task
@@ -7644,7 +7651,7 @@ static int select_idle_smt(struct task_struct *p, struct sched_domain *sd, int t
 	for_each_cpu(cpu, cpu_smt_mask(target)) {
 		if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 			continue;
-		if (available_idle_cpu(cpu) || sched_idle_cpu(cpu))
+		if (choose_idle_cpu(cpu, p))
 			return cpu;
 	}
 
@@ -7710,7 +7717,7 @@ static int select_idle_cpu(struct task_struct *p, struct sched_domain *sd, int t
 		    continue;
 		if (cpu_isolated(cpu))
 			continue;
-		if (available_idle_cpu(cpu) || sched_idle_cpu(cpu))
+		if (choose_idle_cpu(cpu, p))
 			break;
 	}
 
@@ -7730,13 +7737,13 @@ static inline int __select_idle_sibling(struct task_struct *p, int prev, int tar
 	struct sched_domain *sd;
 	int i, recent_used_cpu;
 
-	if ((available_idle_cpu(target) && !cpu_isolated(target)) || sched_idle_cpu(target))
+	if ((available_idle_cpu(target) && !cpu_isolated(target)) || choose_sched_idle_rq(cpu_rq(target), p))
 		return target;
 
 	/*
 	 * If the previous cpu is cache affine and idle, don't be stupid.
 	 */
-	if ((prev != target && cpus_share_cache(prev, target) && available_idle_cpu(prev) && !cpu_isolated(prev)) || sched_idle_cpu(prev))
+	if ((prev != target && cpus_share_cache(prev, target) && available_idle_cpu(prev) && !cpu_isolated(prev)) || choose_sched_idle_rq(cpu_rq(prev), p))
 		return prev;
 
 	/* Check a recently used CPU as a potential idle candidate */
@@ -12482,7 +12489,7 @@ static void rebalance_domains(struct rq *rq, enum cpu_idle_type idle)
 {
 	int continue_balancing = 1;
 	int cpu = rq->cpu;
-	int busy = idle != CPU_IDLE && !sched_idle_cpu(cpu);
+	int busy = idle != CPU_IDLE && !sched_idle_rq(rq);
 	unsigned long interval;
 	struct sched_domain *sd;
 	/* Earliest time when we have to do rebalance again */
@@ -12537,7 +12544,7 @@ static void rebalance_domains(struct rq *rq, enum cpu_idle_type idle)
 				 * state even if we migrated tasks. Update it.
 				 */
 				idle = idle_cpu(cpu);
-				busy = !idle && !sched_idle_cpu(cpu);
+				busy = !idle && !sched_idle_rq(rq);
 			}
 			sd->last_balance = jiffies;
 			interval = get_sd_balance_interval(sd, busy);
