@@ -135,7 +135,7 @@ extern void srcu_init_notifier_head(struct srcu_notifier_head *nh);
 #endif
 
 #define SRCU_NOTIFIER_HEAD(name)				\
-	_SRCU_NOTIFIER_HEAD(name, /* not static */)
+	_SRCU_NOTIFIER_HEAD(name, )
 
 #define SRCU_NOTIFIER_HEAD_STATIC(name)				\
 	_SRCU_NOTIFIER_HEAD(name, static)
