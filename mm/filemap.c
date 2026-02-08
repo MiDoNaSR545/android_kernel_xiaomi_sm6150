@@ -2080,7 +2080,7 @@ generic_file_buffered_read_pagenotuptodate(struct kiocb *iocb,
 			!mapping->a_ops->is_partially_uptodate)
 		goto page_not_up_to_date;
 	/* pipes can't handle partially uptodate pages */
-	if (unlikely(iter->type & ITER_PIPE))
+	if (unlikely(iov_iter_is_pipe(iter)))
 		goto page_not_up_to_date;
 	if (!trylock_page(page))
 		goto page_not_up_to_date;
