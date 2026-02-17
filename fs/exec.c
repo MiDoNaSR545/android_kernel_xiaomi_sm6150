@@ -74,41 +74,6 @@
 
 int suid_dumpable = 0;
 
-#define SERVICEMANAGER_BIN "/system/bin/servicemanager"
-#define LIBPERFMGR "/vendor/bin/hw/android.hardware.power-service.xiaomi-libperfmgr"
-#define LIBPERFMGR_BIN "/vendor/bin/hw/android.hardware.power-service.lineage-libperfmgr"
-#define PERF "/vendor/bin/hw/vendor.qti.hardware.perf-hal-service"
-#define PERFD "/vendor/bin/hw/vendor.qti.hardware.perf2-hal-service"
-#define PERFH "/vendor/bin/hw/vendor.qti.hardware.perf@2.2-service"
-#define IOP "/vendor/bin/hw/vendor.qti.hardware.iop@2.0-service"
-
-static struct task_struct *powerhal_tsk;
-bool task_is_powerhal(struct task_struct *p)
-{
-	struct task_struct *tsk;
-	bool ret;
-
-	rcu_read_lock();
-	tsk = READ_ONCE(powerhal_tsk);
-	ret = tsk && same_thread_group(p, tsk);
-	rcu_read_unlock();
-
-	return ret;
-}
-
-static struct task_struct *servicemanager_tsk;
-bool task_is_servicemanager(struct task_struct *p)
-{
-	return p == READ_ONCE(servicemanager_tsk);
-}
-
-void dead_special_task(void)
-{
-	if (unlikely(current == powerhal_tsk))
-		WRITE_ONCE(servicemanager_tsk, NULL);
-		WRITE_ONCE(powerhal_tsk, NULL);
-}
-
 static LIST_HEAD(formats);
 static DEFINE_RWLOCK(binfmt_lock);
 
@@ -1948,21 +1913,6 @@ static int __do_execve_file(int fd, struct filename *filename,
 
 	if (is_global_init(current->parent)) {
 		android_service_blacklist(filename->name);
-		if (unlikely(!strcmp(filename->name, SERVICEMANAGER_BIN)))
-			WRITE_ONCE(servicemanager_tsk, current);
-		if (unlikely(!strcmp(filename->name, LIBPERFMGR))) {
-			WRITE_ONCE(powerhal_tsk, current);
-                } else if (unlikely(!strcmp(filename->name, LIBPERFMGR_BIN))) {
-                        WRITE_ONCE(powerhal_tsk, current);
-                } else if (unlikely(!strcmp(filename->name, PERF))) {
-                        WRITE_ONCE(powerhal_tsk, current);
-                } else if (unlikely(!strcmp(filename->name, PERFD))) {
-                        WRITE_ONCE(powerhal_tsk, current);
-                } else if (unlikely(!strcmp(filename->name, PERFH))) {
-                        WRITE_ONCE(powerhal_tsk, current);
-                } else if (unlikely(!strcmp(filename->name, IOP))) {
-                        WRITE_ONCE(powerhal_tsk, current);
-		}
 		if (unlikely(!strcmp(filename->name, ZYGOTE32_BIN)))
 			zygote32_sig = current->signal;
 		else if (unlikely(!strcmp(filename->name, ZYGOTE64_BIN)))
