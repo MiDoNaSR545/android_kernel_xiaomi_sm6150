@@ -57,8 +57,7 @@ struct ftrace_hash;
 extern int ftrace_enabled;
 extern int
 ftrace_enable_sysctl(struct ctl_table *table, int write,
-		     void __user *buffer, size_t *lenp,
-		     loff_t *ppos);
+		     void *buffer, size_t *lenp, loff_t *ppos);
 
 struct ftrace_ops;
 
@@ -278,9 +277,8 @@ extern arch_spinlock_t stack_trace_max_lock;
 extern int stack_tracer_enabled;
 void stack_trace_print(void);
 int
-stack_trace_sysctl(struct ctl_table *table, int write,
-		   void __user *buffer, size_t *lenp,
-		   loff_t *ppos);
+int stack_trace_sysctl(struct ctl_table *table, int write, void *buffer,
+		       size_t *lenp, loff_t *ppos);
 
 /* DO NOT MODIFY THIS VARIABLE DIRECTLY! */
 DECLARE_PER_CPU(int, disable_stack_tracer);
