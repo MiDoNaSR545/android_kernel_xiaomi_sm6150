@@ -5757,15 +5757,16 @@ static void hrtick_start_fair(struct rq *rq, struct task_struct *p)
 }
 
 /*
- * called from enqueue/dequeue and updates the hrtick when the
- * current task is from our class and nr_running is low enough
- * to matter.
+ * Called on enqueue to start the hrtick when h_nr_queued becomes more than 1.
  */
 static void hrtick_update(struct rq *rq)
 {
 	struct task_struct *curr = rq->curr;
 
 	if (!hrtick_enabled(rq) || curr->sched_class != &fair_sched_class)
+		return;
+
+	if (hrtick_active(rq))
 		return;
 
 	hrtick_start_fair(rq, curr);
@@ -5962,8 +5963,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	}
 
 	assert_list_leaf_cfs_rq(rq);
-
-	hrtick_update(rq);
 }
 
 /*
