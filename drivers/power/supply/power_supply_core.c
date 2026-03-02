@@ -177,8 +177,8 @@ static int __power_supply_populate_supplied_from(struct device *dev,
 		if (np == epsy->of_node) {
 			dev_info(&psy->dev, "%s: Found supply : %s\n",
 				psy->desc->name, epsy->desc->name);
-			psy->supplied_from[psy->num_supplies++] =
-				(char *)epsy->desc->name;
+			psy->supplied_from[i-1] = (char *)epsy->desc->name;
+			psy->num_supplies++;
 			of_node_put(np);
 			break;
 		}
@@ -272,8 +272,8 @@ static int power_supply_check_supplies(struct power_supply *psy)
 	if (!psy->supplied_from)
 		return -ENOMEM;
 
-	*psy->supplied_from = devm_kcalloc(&psy->dev,
-					   cnt - 1, sizeof(char *),
+	*psy->supplied_from = devm_kzalloc(&psy->dev,
+					   sizeof(char *) * (cnt - 1),
 					   GFP_KERNEL);
 	if (!*psy->supplied_from)
 		return -ENOMEM;
@@ -358,7 +358,8 @@ static int __power_supply_is_system_supplied(struct device *dev, void *data)
 			return 0;
 
 	(*count)++;
-	if (psy->desc->type != POWER_SUPPLY_TYPE_BATTERY)
+	if (psy->desc->type != POWER_SUPPLY_TYPE_BATTERY &&
+	    psy->desc->type != POWER_SUPPLY_TYPE_BMS)
 		if (!psy->desc->get_property(psy, POWER_SUPPLY_PROP_ONLINE,
 					&ret))
 			return ret.intval;

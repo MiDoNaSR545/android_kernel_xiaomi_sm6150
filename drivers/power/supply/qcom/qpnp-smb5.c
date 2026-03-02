@@ -30,10 +30,11 @@
 #include <linux/regulator/machine.h>
 #include <linux/iio/consumer.h>
 #include <linux/pmic-voter.h>
-#include <linux/printk_disable_msg.h>
 #include "smb5-reg.h"
 #include "smb5-lib.h"
 #include "schgm-flash.h"
+
+#include <soc/qcom/socinfo.h>
 
 static struct smb_params smb5_pmi632_params = {
 	.fcc			= {
@@ -241,7 +242,7 @@ struct smb5 {
 
 static struct smb_charger *__smbchg;
 
-static int __debug_mask;
+static int __debug_mask = PR_MISC | PR_PARALLEL | PR_OTG | PR_WLS | PR_OEM;
 module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
@@ -482,14 +483,14 @@ static int read_step_chg_range_data_from_node(struct device_node *node,
 	length = rc;
 	per_tuple_length = sizeof(struct six_pin_step_data) / sizeof(u32);
 	if (length % per_tuple_length) {
-		pr_debug("%s length (%d) should be multiple of %d\n",
+		pr_err("%s length (%d) should be multiple of %d\n",
 				prop_str, length, per_tuple_length);
 		return -EINVAL;
 	}
 	tuples = length / per_tuple_length;
 
 	if (tuples > MAX_STEP_ENTRIES) {
-		pr_debug("too many entries(%d), only %d allowed\n",
+		pr_err("too many entries(%d), only %d allowed\n",
 				tuples, MAX_STEP_ENTRIES);
 		return -EINVAL;
 	}
@@ -524,7 +525,7 @@ static int smb5_charge_step_charge_init(struct smb_charger *chg,
 #define MICRO_P1A				100000
 #define MICRO_1PA				1000000
 #define MICRO_3PA				3000000
-#define MICRO_1P8A_FOR_DCP		2200000
+#define MICRO_1P8A_FOR_DCP		1800000
 #define MICRO_4PA				4000000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS		50
 #define DEFAULT_WD_BARK_TIME			64
@@ -598,13 +599,13 @@ static int smb5_parse_dt(struct smb5 *chip)
 
 	rc = of_property_read_u32(node, "mi,ffc-low-tbat", &chg->ffc_low_tbat);
 	if (rc < 0) {
-		pr_debug("use default ffc_low_tbat\n");
+		pr_info("use default ffc_low_tbat\n");
 		chg->ffc_low_tbat = DEFAULT_FFC_LOW_TBAT;
 	}
 
 	rc = of_property_read_u32(node, "mi,ffc-high-tbat", &chg->ffc_high_tbat);
 	if (rc < 0) {
-		pr_debug("use default ffc_high_tbat\n");
+		pr_info("use default ffc_high_tbat\n");
 		chg->ffc_high_tbat = DEFAULT_FFC_HIGH_TBAT;
 	}
 
@@ -639,7 +640,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 	rc = of_property_read_u32(node, "mi,fcc-calibrate-ua", &chg->fcc_calibrate);
 	if (rc < 0)
 		chg->fcc_calibrate = 0;
-	pr_debug("fcc_calibrate = %d\n", chg->fcc_calibrate);
+	pr_info("fcc_calibrate = %d\n", chg->fcc_calibrate);
 
 	rc = of_property_read_u32(node,
 				"qcom,fv-max-uv", &chip->dt.batt_profile_fv_uv);
@@ -844,7 +845,6 @@ static int smb5_parse_dt(struct smb5 *chip)
 		}
 	}
 #endif
-
 	rc = of_property_read_u32(node, "qcom,charger-temp-max",
 			&chg->charger_temp_max);
 	if (rc < 0)
@@ -1253,7 +1253,8 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		rc = smblib_get_prop_usb_online(chg, val);
-		if (!val->intval)
+		if ((!val->intval) &&
+			(!chg->pd_hard_reset && chg->pd_active == POWER_SUPPLY_PD_INACTIVE))
 			break;
 
 		if ((((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) ||
@@ -2224,7 +2225,6 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
 	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_SLOWLY_CHARGING,
-	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
@@ -2392,9 +2392,6 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SLOWLY_CHARGING:
 		rc = smblib_get_prop_battery_slowly_charging(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
-		rc = smblib_get_prop_system_temp_level(chg, val);
-		break;
 	case POWER_SUPPLY_PROP_BQ_INPUT_SUSPEND:
 		rc = smblib_get_prop_battery_bq_input_suspend(chg, val);
 		break;
@@ -2413,7 +2410,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 			val->intval = chg->typec_mode;
 		break;
 	default:
-		pr_debug("batt power supply prop %d not supported\n", psp);
+		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
 	}
 
@@ -2563,9 +2560,6 @@ static int smb5_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SLOWLY_CHARGING:
 			rc = smblib_set_prop_battery_slowly_charging(chg, val);
-		break;
-	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
-		rc = smblib_set_prop_system_temp_level(chg, val);
 		break;
 	default:
 		rc = -EINVAL;
@@ -3286,6 +3280,9 @@ static int smb5_init_hw(struct smb5 *chip)
 	int rc, type = 0;
 	u8 val = 0, mask = 0;
 	union power_supply_propval pval;
+	uint32_t hw_version;
+
+	hw_version = get_hw_version_platform();
 
 	if (chip->dt.no_battery)
 		chg->fake_capacity = 50;
@@ -3413,9 +3410,8 @@ static int smb5_init_hw(struct smb5 *chip)
 	 */
 	if (chg->chg_param.smb_version == PMI632_SUBTYPE) {
 		schgm_flash_init(chg);
+		smblib_rerun_apsd_if_required(chg);
 	}
-
-	smblib_rerun_apsd_if_required(chg);
 
 	/* Use ICL results from HW */
 	rc = smblib_icl_override(chg, HW_AUTO_MODE);
@@ -3758,8 +3754,8 @@ static int smb5_init_hw(struct smb5 *chip)
 	 * 1. set 0x154a bit0 to 1 to enable detection of debug accessory in sink mode i.e. detecting Rp-Rp on both the CC pins
 	 * 2. set 0x154a bit1 to 1 to enable charging when debug access SNK mode is detected
 	 * 3. set 0x154a bit2 to 1 to select ICL based on FMB1/2 table specified in MDOS during debug access SNK mode
-	 * 4. set 0x154a bit3 to 0 to allow AICL to run (if enabled) for debug access mode
-	 * 5. set 0x154a bit4 to 0 to disable FMB
+         * 4. set 0x154a bit3 to 0 to allow AICL to run (if enabled) for debug access mode
+	 * 4. set 0x154a bit4 to 0 to disable FMB
 	 */
 	rc = smblib_masked_write(chg, TYPE_C_DEBUG_ACC_SNK_CFG, 0x1F, 0x07);
 	if (rc < 0) {
