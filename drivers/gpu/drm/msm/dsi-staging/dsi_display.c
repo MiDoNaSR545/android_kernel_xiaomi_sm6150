@@ -7957,6 +7957,13 @@ int dsi_display_disable(struct dsi_display *display)
 		pr_err("[%s] display wake up failed, rc=%d\n",
 		       display->name, rc);
 
+        if (!display->poms_pending) {
+                rc = dsi_panel_disable(display->panel);
+                if (rc)
+                        pr_err("[%s] failed to disable DSI panel, rc=%d\n",
+                               display->name, rc);
+        }
+
 	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
 		rc = dsi_display_vid_engine_disable(display);
 		if (rc)
@@ -7970,13 +7977,6 @@ int dsi_display_disable(struct dsi_display *display)
 	} else {
 		pr_err("[%s] Invalid configuration\n", display->name);
 		rc = -EINVAL;
-	}
-
-	if (!display->poms_pending) {
-		rc = dsi_panel_disable(display->panel);
-		if (rc)
-			pr_err("[%s] failed to disable DSI panel, rc=%d\n",
-			       display->name, rc);
 	}
 
 	mutex_unlock(&display->display_lock);
