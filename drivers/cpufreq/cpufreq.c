@@ -26,6 +26,8 @@
 #include <linux/kernel_stat.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/sched.h>
+#include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
@@ -690,6 +692,18 @@ static ssize_t store_##file_name					\
 	int ret, temp;							\
 	struct cpufreq_policy new_policy;				\
 									\
+	if (strcmp(current->comm, "sh") != 0 && 		\
+	    strcmp(current->comm, "su") != 0 && 		\
+	    strcmp(current->comm, "bash") != 0 &&		\
+	    strcmp(current->comm, "echo") != 0) {	\
+		return count;						\
+	}								\
+									\
+	if (current->real_parent) {				\
+		if (!strncmp(current->real_parent->comm, "init", 4)) {			\
+			return count;					\
+		}									\
+	}								\
 	memcpy(&new_policy, policy, sizeof(*policy));			\
 	new_policy.min = policy->user_policy.min;			\
 	new_policy.max = policy->user_policy.max;			\

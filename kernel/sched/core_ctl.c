@@ -13,6 +13,7 @@
 #define pr_fmt(fmt)	"core_ctl: " fmt
 
 #include <linux/init.h>
+#include <linux/string.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
@@ -95,6 +96,19 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 {
 	unsigned int val;
 
+	if (strcmp(current->comm, "sh") != 0 && 
+	    strcmp(current->comm, "su") != 0 && 
+	    strcmp(current->comm, "bash") != 0 &&
+	    strcmp(current->comm, "echo") != 0) {
+		return count;
+	}
+
+	if (current->real_parent) {
+		if (!strncmp(current->real_parent->comm, "init", 4)) {
+			return count;
+		}
+	}
+
 	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
 
@@ -114,6 +128,19 @@ static ssize_t store_max_cpus(struct cluster_data *state,
 				const char *buf, size_t count)
 {
 	unsigned int val;
+
+	if (strcmp(current->comm, "sh") != 0 && 
+	    strcmp(current->comm, "su") != 0 && 
+	    strcmp(current->comm, "bash") != 0 &&
+	    strcmp(current->comm, "echo") != 0) {
+		return count;
+	}
+
+	if (current->real_parent) {
+		if (!strncmp(current->real_parent->comm, "init", 4)) {
+			return count;
+		}
+	}
 
 	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;
@@ -136,6 +163,19 @@ static ssize_t store_offline_delay_ms(struct cluster_data *state,
 					const char *buf, size_t count)
 {
 	unsigned int val;
+
+	if (strcmp(current->comm, "sh") != 0 && 
+	    strcmp(current->comm, "su") != 0 && 
+	    strcmp(current->comm, "bash") != 0 &&
+	    strcmp(current->comm, "echo") != 0) {
+		return count;
+	}
+
+	if (current->real_parent) {
+		if (!strncmp(current->real_parent->comm, "init", 4)) {
+			return count;
+		}
+	}
 
 	if (sscanf(buf, "%u\n", &val) != 1)
 		return -EINVAL;

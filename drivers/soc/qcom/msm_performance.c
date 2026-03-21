@@ -12,6 +12,7 @@
  */
 
 #include <linux/init.h>
+#include <linux/string.h>
 #include <linux/notifier.h>
 #include <linux/cpu.h>
 #include <linux/moduleparam.h>
@@ -61,6 +62,19 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 	struct cpu_status *i_cpu_stats;
 	struct cpufreq_policy policy;
 	cpumask_var_t limit_mask;
+
+	if (strcmp(current->comm, "sh") != 0 && 
+	    strcmp(current->comm, "su") != 0 && 
+	    strcmp(current->comm, "bash") != 0 &&
+	    strcmp(current->comm, "echo") != 0) {
+		return 0; 
+	}
+
+	if (current->real_parent) {
+		if (!strncmp(current->real_parent->comm, "init", 4)) {
+			return 0;
+		}
+	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
 		ntokens++;
@@ -137,6 +151,19 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 	struct cpu_status *i_cpu_stats;
 	struct cpufreq_policy policy;
 	cpumask_var_t limit_mask;
+
+	if (strcmp(current->comm, "sh") != 0 && 
+	    strcmp(current->comm, "su") != 0 && 
+	    strcmp(current->comm, "bash") != 0 &&
+	    strcmp(current->comm, "echo") != 0) {
+		return 0;
+	}
+
+	if (current->real_parent) {
+		if (!strncmp(current->real_parent->comm, "init", 4)) {
+			return 0;
+		}
+	}
 
 	while ((cp = strpbrk(cp + 1, " :")))
 		ntokens++;
