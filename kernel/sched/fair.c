@@ -882,11 +882,33 @@ static s64 entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se, u64 avrunt
 	return clamp(vlag, -limit, limit);
 }
 
-static void update_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se)
+/*
+ * Delayed dequeue aims to reduce the negative lag of a dequeued task. While
+ * updating the lag of an entity, check that negative lag didn't increase
+ * during the delayed dequeue period which would be unfair.
+ * Similarly, check that the entity didn't gain positive lag when DELAY_ZERO
+ * is set.
+ *
+ * Return true if the lag has been adjusted.
+ */
+static __always_inline
+bool update_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
+	s64 vlag = entity_lag(cfs_rq, se, avg_vruntime(cfs_rq));
+	bool ret;
+
 	SCHED_WARN_ON(!se->on_rq);
 
-	se->vlag = entity_lag(cfs_rq, se, avg_vruntime(cfs_rq));
+	if (se->sched_delayed) {
+		/* previous vlag < 0 otherwise se would not be delayed */
+		vlag = max(vlag, se->vlag);
+		if (sched_feat(DELAY_ZERO))
+			vlag = min(vlag, 0);
+	}
+	ret = (vlag == se->vlag);
+	se->vlag = vlag;
+
+	return ret;
 }
 
 /*
@@ -4821,9 +4843,53 @@ static void clear_buddies(struct cfs_rq *cfs_rq, struct sched_entity *se)
 
 static __always_inline void return_cfs_rq_runtime(struct cfs_rq *cfs_rq);
 
-static void
+static void set_delayed(struct sched_entity *se)
+{
+	se->sched_delayed = 1;
+
+	/*
+	 * Delayed se of cfs_rq have no tasks queued on them.
+	 * Do not adjust h_nr_runnable since dequeue_entities()
+	 * will account it for blocked tasks.
+	 */
+	if (!entity_is_task(se))
+		return;
+
+	for_each_sched_entity(se) {
+		struct cfs_rq *cfs_rq = cfs_rq_of(se);
+
+		cfs_rq->h_nr_runnable--;
+		if (cfs_rq_throttled(cfs_rq))
+			break;
+	}
+}
+
+static void clear_delayed(struct sched_entity *se)
+{
+	se->sched_delayed = 0;
+
+	/*
+	 * Delayed se of cfs_rq have no tasks queued on them.
+	 * Do not adjust h_nr_runnable since a dequeue has
+	 * already accounted for it or an enqueue of a task
+	 * below it will account for it in enqueue_task_fair().
+	 */
+	if (!entity_is_task(se))
+		return;
+
+	for_each_sched_entity(se) {
+		struct cfs_rq *cfs_rq = cfs_rq_of(se);
+
+		cfs_rq->h_nr_runnable++;
+		if (cfs_rq_throttled(cfs_rq))
+			break;
+	}
+}
+
+static bool
 dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 {
+	bool sleep = flags & DEQUEUE_SLEEP;
 	int action = UPDATE_TG;
 
 	if (entity_is_task(se) && task_on_rq_migrating(task_of(se)))
@@ -4833,6 +4899,29 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	 * Update run-time statistics of the 'current'.
 	 */
 	update_curr(cfs_rq);
+	clear_buddies(cfs_rq, se);
+
+	if (flags & DEQUEUE_DELAYED) {
+		SCHED_WARN_ON(!se->sched_delayed);
+	} else {
+		bool delay = sleep;
+		/*
+		 * DELAY_DEQUEUE relies on spurious wakeups, special task
+		 * states must not suffer spurious wakeups, excempt them.
+		 */
+		if (flags & DEQUEUE_SPECIAL)
+			delay = false;
+
+		SCHED_WARN_ON(delay && se->sched_delayed);
+
+		if (sched_feat(DELAY_DEQUEUE) && delay &&
+		    !entity_eligible(cfs_rq, se)) {
+			update_load_avg(cfs_rq, se, 0);
+			update_entity_lag(cfs_rq, se);
+			set_delayed(se);
+			return false;
+		}
+	}
 
 	/*
 	 * When dequeuing a sched_entity, we must:
@@ -4859,6 +4948,14 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	return_cfs_rq_runtime(cfs_rq);
 
 	update_cfs_group(se);
+
+	if (flags & DEQUEUE_DELAYED)
+		clear_delayed(se);
+
+	if (cfs_rq->nr_queued == 0)
+		update_idle_cfs_rq_clock_pelt(cfs_rq);
+
+	return true;
 }
 
 static void
@@ -5974,6 +6071,32 @@ static int choose_idle_cpu(int cpu, struct task_struct *p)
 	       choose_sched_idle_rq(cpu_rq(cpu), p);
 }
 
+static void
+requeue_delayed_entity(struct sched_entity *se)
+{
+	struct cfs_rq *cfs_rq = cfs_rq_of(se);
+
+	/*
+	 * se->sched_delayed should imply: se->on_rq == 1.
+	 * Because a delayed entity is one that is still on
+	 * the runqueue competing until elegibility.
+	 */
+	SCHED_WARN_ON(!se->sched_delayed);
+	SCHED_WARN_ON(!se->on_rq);
+
+	if (update_entity_lag(cfs_rq, se)) {
+		cfs_rq->nr_queued--;
+		if (se != cfs_rq->curr)
+			__dequeue_entity(cfs_rq, se);
+		place_entity(cfs_rq, se, 0);
+		if (se != cfs_rq->curr)
+			__enqueue_entity(cfs_rq, se);
+		cfs_rq->nr_queued++;
+	}
+
+	update_load_avg(cfs_rq, se, 0);
+	clear_delayed(se);
+}
 /*
  * The enqueue_task method is called before nr_running is
  * increased. Here we update the fair scheduling stats and
