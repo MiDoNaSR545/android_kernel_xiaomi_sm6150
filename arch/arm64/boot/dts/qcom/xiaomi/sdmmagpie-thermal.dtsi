@@ -17,7 +17,28 @@
 	camera-ftherm-adc {
 		status = "disabled";
 	};
+
 	nvm-therm-adc {
+		status = "disabled";
+	};
+
+	pm6150-ibat-lvl0 {
+		status = "disabled";
+	};
+
+	pm6150-ibat-lvl1 {
+		status = "disabled";
+	};
+
+	pm6150-vbat-lvl0 {
+		status = "disabled";
+	};
+
+	pm6150-vbat-lvl1 {
+		status = "disabled";
+	};
+
+	pm6150-vbat-lvl2 {
 		status = "disabled";
 	};
 };
