@@ -41,4 +41,8 @@
 	pm6150-vbat-lvl2 {
 		status = "disabled";
 	};
+
+	quiet-therm-step {
+		status = "disabled";
+	};
 };
