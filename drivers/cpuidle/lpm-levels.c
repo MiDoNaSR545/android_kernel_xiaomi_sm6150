@@ -121,7 +121,7 @@ static int lpm_drm_panel_notify(struct notifier_block *nb,
 	unsigned int blank;
 
 	if (!evdata || !evdata->data || val != MSM_DRM_EARLY_EVENT_BLANK)
-		return 0;
+		return NOTIFY_DONE;
 
 	blank = *(int *)(evdata->data);
 	switch (blank) {
