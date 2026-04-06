@@ -20,6 +20,7 @@
 #include <linux/sort.h>
 #include <linux/debugfs.h>
 #include <linux/ktime.h>
+#include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 #include <uapi/drm/sde_drm.h>
 #include <drm/drm_mode.h>
@@ -97,6 +98,10 @@ static struct sde_crtc_custom_events custom_events[] = {
 /* default line padding ratio limitation */
 #define MAX_VPADDING_RATIO_M		63
 #define MAX_VPADDING_RATIO_N		15
+
+#ifdef CONFIG_KPROFILES
+extern int kp_active_mode(void);
+#endif
 
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
@@ -4388,10 +4393,29 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 
 	SDE_ATRACE_BEGIN("crtc_commit");
 
-	/* Boost when a new frame is ready to be committed */
-	if (df_boost_within_input(3250)) {
-                devfreq_boost_kick(DEVFREQ_CPU_LLCC_DDR_BW);
+#ifdef CONFIG_KPROFILES
+	switch (kp_active_mode()) {
+	case 0:
+	case 2:
+		if (cpu_input_boost_within_input(3250))
+			cpu_input_boost_kick();
+		if (df_boost_within_input(3250))
+			devfreq_boost_kick(DEVFREQ_CPU_LLCC_DDR_BW);
+		break;
+	case 3:
+		cpu_input_boost_kick();
+		devfreq_boost_kick(DEVFREQ_CPU_LLCC_DDR_BW);
+		break;
+	default:
+		break;
 	}
+#else
+	if (cpu_input_boost_within_input(3250))
+		cpu_input_boost_kick();
+
+	if (df_boost_within_input(3250))
+		devfreq_boost_kick(DEVFREQ_CPU_LLCC_DDR_BW);
+#endif
 
 	is_error = _sde_crtc_prepare_for_kickoff_rot(dev, crtc);
 
