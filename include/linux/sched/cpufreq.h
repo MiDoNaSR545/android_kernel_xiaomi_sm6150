@@ -31,7 +31,7 @@ void cpufreq_remove_update_util_hook(int cpu);
 static inline unsigned long map_util_freq(unsigned long util,
 					unsigned long freq, unsigned long cap)
 {
-	return freq * util / cap;
+	return (freq + (freq >> 2)) * util / cap;
 }
 
 static inline __maybe_unused unsigned long map_util_perf(unsigned long util)
