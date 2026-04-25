@@ -21,8 +21,6 @@
 #include <linux/pmic-voter.h>
 #include "step-chg-jeita.h"
 
-#include <linux/printk_disable_msg.h>
-
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
 #define DYNAMIC_FV_VOTER	"DYNAMIC_FV_VOTER"

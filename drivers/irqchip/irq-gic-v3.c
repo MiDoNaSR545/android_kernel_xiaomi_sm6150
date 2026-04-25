@@ -44,8 +44,6 @@
 #include <linux/suspend.h>
 #include <linux/notifier.h>
 
-#include <linux/printk_disable_msg.h>
-
 #include "irq-gic-common.h"
 
 struct redist_region {

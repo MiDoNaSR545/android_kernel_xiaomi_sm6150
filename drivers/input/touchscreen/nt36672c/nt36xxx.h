@@ -32,8 +32,6 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#include <linux/printk_disable_msg.h>
-
 #include "nt36xxx_mem_map.h"
 
 #ifdef CONFIG_MTK_SPI
