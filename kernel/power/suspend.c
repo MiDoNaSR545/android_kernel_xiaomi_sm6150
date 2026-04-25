@@ -36,7 +36,6 @@
 #include <linux/soc/qcom/smem_state.h>
 #include "power.h"
 #include <soc/qcom/boot_stats.h>
-#include <linux/printk_disable_msg.h>
 
 #define PROC_AWAKE_ID 12 /* 12th bit */
 #define AWAKE_BIT BIT(PROC_AWAKE_ID)

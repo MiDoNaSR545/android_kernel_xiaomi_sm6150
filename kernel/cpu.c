@@ -41,8 +41,6 @@
 #include <trace/events/cpuhp.h>
 #include <linux/sched/clock.h>
 
-#include <linux/printk_disable_msg.h>
-
 #include "smpboot.h"
 
 /**
