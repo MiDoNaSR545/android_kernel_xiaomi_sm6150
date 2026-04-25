@@ -6,6 +6,7 @@
 #include <linux/unistd.h>
 #include <asm/exec.h>
 #include <uapi/linux/binfmts.h>
+#include <linux/sched/signal.h>
 
 struct filename;
 
@@ -153,6 +154,9 @@ int do_execve_file(struct file *file, void *__argv, void *__envp);
 static inline bool task_is_booster(struct task_struct *tsk)
 {
 	char comm[sizeof(tsk->comm)];
+
+	if (tsk->signal->oom_score_adj >= 0)
+		return false;
 
 	get_task_comm(comm, tsk);
 	return strstr(comm, "init")  || strstr(comm, "NodeLooperThrea") ||
