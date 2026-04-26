@@ -1159,6 +1159,13 @@ static ssize_t min_freq_store(struct device *dev, struct device_attribute *attr,
 	int ret;
 	unsigned long max;
 
+	/*
+	 * Don't allow init/power HAL/perf daemons to clamp the
+	 * KGSL GPU devfreq min frequency.
+	 */
+	if (devfreq_is_kgsl_gpu(df) && task_is_booster(current))
+		return -EPERM;
+
 	/* Minfreq is managed by devfreq_boost */
 	if (df->is_boost_device)
 		return count;
@@ -1166,13 +1173,6 @@ static ssize_t min_freq_store(struct device *dev, struct device_attribute *attr,
 	ret = sscanf(buf, "%lu", &value);
 	if (ret != 1)
 		return -EINVAL;
-
-	/*
-	 * Don't allow init/power HAL/perf daemons to clamp the
-	 * KGSL GPU devfreq max frequency.
-	 */
-	if (devfreq_is_kgsl_gpu(df) && task_is_booster(current))
-		return count;
 
 	mutex_lock(&df->event_lock);
 	mutex_lock(&df->lock);
