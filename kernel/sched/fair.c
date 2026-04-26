@@ -10960,7 +10960,7 @@ asym_active_balance(struct lb_env *env)
 static inline bool
 voluntary_active_balance(struct lb_env *env)
 {
-	struct sched_domain *sd = env->sd;
+	/* struct sched_domain *sd = env->sd; */
 
 	if (asym_active_balance(env))
 		return 1;

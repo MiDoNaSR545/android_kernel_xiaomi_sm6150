@@ -278,9 +278,11 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 {
 	unsigned long util, irq, scale;
 	struct rq *rq = cpu_rq(cpu);
+#if 0
 	unsigned long max_cap, rt;
 	struct sugov_cpu *loadcpu = &per_cpu(sugov_cpu, cpu);
 	s64 delta;
+#endif
 
 	scale = arch_scale_cpu_capacity(cpu);
 

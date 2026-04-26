@@ -4078,7 +4078,7 @@ void scheduler_tick(void)
 	bool early_notif;
 	u32 old_load;
 	struct related_thread_group *grp;
-	unsigned int flag = 0;
+	unsigned __maybe_unused int flag = 0;
 
 	sched_clock_tick();
 
