@@ -18,8 +18,7 @@
  * Change log:
  *
  * 1.1.0 (01.09.2017)
- *   - By default, the following wakelocks are blocked in an own list
- *     qcom_rx_wakelock, wlan, wlan_wow_wl, wlan_extscan_wl, NETLINK
+ *   - By default, selected wakelocks are blocked in an own list
  *
  * 1.0.1 (29.08.2017)
  *   - Add killing wakelock when currently active
