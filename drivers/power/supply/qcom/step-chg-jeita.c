@@ -101,7 +101,7 @@ struct step_chg_info {
 
 static struct step_chg_info *the_chip;
 
-#define STEP_CHG_HYSTERISIS_DELAY_US		500000 /* 0.5 secs */
+#define STEP_CHG_HYSTERISIS_DELAY_US		5000000 /* 5 secs */
 
 #define BATT_HOT_DECIDEGREE_MAX			600
 #define GET_CONFIG_DELAY_MS		2000
@@ -365,10 +365,10 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 
 	rc = of_property_read_u32(profile_node, "mi,step-chg-hysteresis", &step_chg_hysteresis);
 	if (!rc) {
-		pr_debug("use dts step_chg_hysteresis: %d\n", step_chg_hysteresis);
+		pr_info("use dts step_chg_hysteresis: %d\n", step_chg_hysteresis);
 		chip->step_chg_config->param.hysteresis = step_chg_hysteresis;
 	} else {
-		pr_debug("don't use dts step_chg_hysteresis: %d\n", chip->step_chg_config->param.hysteresis);
+		pr_info("don't use dts step_chg_hysteresis: %d\n", chip->step_chg_config->param.hysteresis);
 	}
 
 	chip->step_chg_cfg_valid = true;
@@ -450,17 +450,17 @@ static void get_config_work(struct work_struct *work)
 	chip->config_is_read = true;
 
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_debug("step-chg-cfg: %duV(SoC) ~ %duV(SoC), %duA\n",
+		pr_err("step-chg-cfg: %duV(SoC) ~ %duV(SoC), %duA\n",
 			chip->step_chg_config->fcc_cfg[i].low_threshold,
 			chip->step_chg_config->fcc_cfg[i].high_threshold,
 			chip->step_chg_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_debug("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
+		pr_err("jeita-fcc-cfg: %ddecidegree ~ %ddecidegre, %duA\n",
 			chip->jeita_fcc_config->fcc_cfg[i].low_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].high_threshold,
 			chip->jeita_fcc_config->fcc_cfg[i].value);
 	for (i = 0; i < MAX_STEP_CHG_ENTRIES; i++)
-		pr_debug("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
+		pr_err("jeita-fv-cfg: %ddecidegree ~ %ddecidegre, %duV\n",
 			chip->jeita_fv_config->fv_cfg[i].low_threshold,
 			chip->jeita_fv_config->fv_cfg[i].high_threshold,
 			chip->jeita_fv_config->fv_cfg[i].value);
@@ -878,10 +878,10 @@ static int handle_jeita(struct step_chg_info *chip)
 			return rc;
 		}
 		batt_soc = pval.intval;
-		pr_debug("%s:batt_soc=%d\n", __func__, batt_soc);
+		pr_info("%s:batt_soc=%d\n", __func__, batt_soc);
 		rc = power_supply_get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
-		pr_debug("%s:fastcharge_mode=%d\n", __func__, pval.intval);
+		pr_err("%s:fastcharge_mode=%d\n", __func__, pval.intval);
 		if (rc < 0) {
 			pr_err("Couldn't read fastcharge mode fail rc=%d\n", rc);
 			return rc;
@@ -904,7 +904,7 @@ static int handle_jeita(struct step_chg_info *chip)
 						rc = power_supply_set_property(chip->batt_psy,
 								POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT, &pval);
 				}
-				pr_debug("batt_temp = %d, ffc_chg_term_current=%d\n", batt_temp, chg_term_current);
+				pr_info("batt_temp = %d, ffc_chg_term_current=%d\n", batt_temp, chg_term_current);
 			}
 		}
 		pval.intval = batt_temp;
@@ -920,7 +920,7 @@ static int handle_jeita(struct step_chg_info *chip)
 	if (!chip->usb_icl_votable)
 		goto set_jeita_fv;
 
-	pr_debug("%s = %d FCC = %duA FV = %duV\n",
+	pr_err("%s = %d FCC = %duA FV = %duV\n",
 		chip->jeita_fcc_config->param.prop_name, pval.intval, fcc_ua, fv_uv);
 
 	/* set and clear fast charge mode when soft jeita trigger and clear */
@@ -942,7 +942,7 @@ static int handle_jeita(struct step_chg_info *chip)
 					|| (pd_authen_result == 1)) {
 			if ((temp >= BATT_WARM_THRESHOLD || temp <= BATT_COOL_THRESHOLD)
 						&& !fast_mode_dis) {
-				pr_debug("temp:%d disable fastcharge mode\n", temp);
+				pr_err("temp:%d disable fastcharge mode\n", temp);
 				pval.intval = false;
 				rc = power_supply_set_property(chip->usb_psy,
 						POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
@@ -954,7 +954,7 @@ static int handle_jeita(struct step_chg_info *chip)
 			} else if ((temp < BATT_WARM_THRESHOLD - chip->jeita_fv_config->param.hysteresis)
 						&& (temp > BATT_COOL_THRESHOLD + chip->jeita_fv_config->param.hysteresis)
 							&& fast_mode_dis) {
-				pr_debug("temp:%d enable fastcharge mode\n", temp);
+				pr_err("temp:%d enable fastcharge mode\n", temp);
 				pval.intval = true;
 				rc = power_supply_set_property(chip->usb_psy,
 						POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
@@ -1017,7 +1017,7 @@ static int handle_jeita(struct step_chg_info *chip)
 					vote(chip->usb_icl_votable, JEITA_VOTER, false, 0);
 				}
 			} else {
-				pr_debug("curr_vbat_uv = %duV,FCC =%duA,FV = %duV\n",curr_vbat_uv, fcc_ua, fv_uv);
+				pr_info("curr_vbat_uv = %duV,FCC =%duA,FV = %duV\n",curr_vbat_uv, fcc_ua, fv_uv);
 				if (curr_vbat_uv > fv_uv + JEITA_SIX_PIN_BATT_HYST_UV) {
 					if (pval.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER && fv_uv == WARM_VFLOAT_UV)
 						vote(chip->usb_icl_votable, JEITA_VOTER, true, 0);

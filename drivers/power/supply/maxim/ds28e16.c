@@ -32,10 +32,10 @@
 #include <linux/regmap.h>
 #include <linux/random.h>
 
-#define ds_info	pr_debug
-#define ds_dbg	pr_debug
+#define ds_info	pr_err
+#define ds_dbg	pr_err
 #define ds_err	pr_err
-#define ds_log	pr_debug
+#define ds_log	pr_err
 
 struct ds28e16_data {
 	struct platform_device *pdev;
@@ -149,7 +149,7 @@ short Read_RomID(unsigned char *RomID)
 
 	ds_dbg("Ready to write 0x33 to maxim IC!\n");
 	write_byte(CMD_READ_ROM);
-	udelay(10);
+	Delay_us(10);
 	for (i = 0; i < 8; i++)
 		RomID[i] = read_byte();
 
@@ -252,7 +252,7 @@ unsigned char *read_buf, int *read_len, int write_len)
 	// check for strong pull-up
 	if (delay_ms > 0) {
 		write_byte(CMD_RELEASE_BYTE);
-		mdelay(delay_ms);
+		Delay_us(1000*delay_ms);
 	}
 
 	read_byte();
@@ -1311,7 +1311,7 @@ static int verify_get_property(struct power_supply *psy, enum power_supply_prope
 #endif
 		break;
 	default:
-		ds_dbg("unsupported property %d\n", psp);
+		ds_err("unsupported property %d\n", psp);
 		return -ENODATA;
 	}
 
@@ -1371,7 +1371,7 @@ static int verify_set_property(struct power_supply *psy,
 		break;
 #endif
 	default:
-		ds_dbg("unsupported property %d\n", prop);
+		ds_err("unsupported property %d\n", prop);
 		return -ENODATA;
 	}
 
@@ -1508,7 +1508,7 @@ struct device_attribute *attr, char *buf)
 		ds_dbg("RomID = %02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n",
 		RomID[0], RomID[1], RomID[2], RomID[3],
 		RomID[4], RomID[5], RomID[6], RomID[7]);
-		mdelay(1);
+		Delay_us(1000);
 	}
 	ds_log("test done\nsuccess time : %d\n", count);
 	return scnprintf(buf, PAGE_SIZE,
@@ -1565,7 +1565,7 @@ struct device_attribute *attr, char *buf)
 		pagedata[4], pagedata[5], pagedata[6], pagedata[7],
 		pagedata[8], pagedata[9], pagedata[10], pagedata[11],
 		pagedata[12], pagedata[13], pagedata[14], pagedata[15]);
-		mdelay(1);
+		Delay_us(1000);
 	}
 	ds_log("test done\nsuccess time : %d\n", count);
 	return scnprintf(buf, PAGE_SIZE,
@@ -1790,7 +1790,7 @@ struct device_attribute *attr, char *buf)
 		status[4], status[5], status[6], status[7],
 		status[8], status[9], status[10], status[11],
 		status[12], status[13], status[14], status[15]);
-		mdelay(1);
+		Delay_us(1000);
 	}
 	ds_log("test done\nsuccess time : %d\n", count);
 	return scnprintf(buf, PAGE_SIZE,

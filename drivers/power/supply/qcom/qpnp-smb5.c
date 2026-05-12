@@ -240,7 +240,7 @@ struct smb5 {
 
 static struct smb_charger *__smbchg;
 
-static int __debug_mask;
+static int __debug_mask = PR_MISC | PR_PARALLEL | PR_OTG | PR_WLS | PR_OEM;
 module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
@@ -419,14 +419,14 @@ static int read_step_chg_range_data_from_node(struct device_node *node,
 	length = rc;
 	per_tuple_length = sizeof(struct six_pin_step_data) / sizeof(u32);
 	if (length % per_tuple_length) {
-		pr_debug("%s length (%d) should be multiple of %d\n",
+		pr_err("%s length (%d) should be multiple of %d\n",
 				prop_str, length, per_tuple_length);
 		return -EINVAL;
 	}
 	tuples = length / per_tuple_length;
 
 	if (tuples > MAX_STEP_ENTRIES) {
-		pr_debug("too many entries(%d), only %d allowed\n",
+		pr_err("too many entries(%d), only %d allowed\n",
 				tuples, MAX_STEP_ENTRIES);
 		return -EINVAL;
 	}
@@ -509,8 +509,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 	chg->pd_not_supported = chg->pd_not_supported ||
 			of_property_read_bool(node, "qcom,usb-pd-disable");
 
-	chg->lpd_disabled = chg->lpd_disabled ||
-			of_property_read_bool(node, "qcom,lpd-disable");
+	chg->lpd_disabled = of_property_read_bool(node, "qcom,lpd-disable");
 
 	chg->qc_class_ab = of_property_read_bool(node,
 				"qcom,distinguish-qc-class-ab");
@@ -535,13 +534,13 @@ static int smb5_parse_dt(struct smb5 *chip)
 
 	rc = of_property_read_u32(node, "mi,ffc-low-tbat", &chg->ffc_low_tbat);
 	if (rc < 0) {
-		pr_debug("use default ffc_low_tbat\n");
+		pr_info("use default ffc_low_tbat\n");
 		chg->ffc_low_tbat = DEFAULT_FFC_LOW_TBAT;
 	}
 
 	rc = of_property_read_u32(node, "mi,ffc-high-tbat", &chg->ffc_high_tbat);
 	if (rc < 0) {
-		pr_debug("use default ffc_high_tbat\n");
+		pr_info("use default ffc_high_tbat\n");
 		chg->ffc_high_tbat = DEFAULT_FFC_HIGH_TBAT;
 	}
 
@@ -576,7 +575,7 @@ static int smb5_parse_dt(struct smb5 *chip)
 	rc = of_property_read_u32(node, "mi,fcc-calibrate-ua", &chg->fcc_calibrate);
 	if (rc < 0)
 		chg->fcc_calibrate = 0;
-	pr_debug("fcc_calibrate = %d\n", chg->fcc_calibrate);
+	pr_info("fcc_calibrate = %d\n", chg->fcc_calibrate);
 
 	rc = of_property_read_u32(node,
 				"qcom,fv-max-uv", &chip->dt.batt_profile_fv_uv);
@@ -1184,7 +1183,8 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		rc = smblib_get_prop_usb_online(chg, val);
-		if (!val->intval)
+		if ((!val->intval) &&
+			(!chg->pd_hard_reset && chg->pd_active == POWER_SUPPLY_PD_INACTIVE))
 			break;
 
 		if (((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) ||
@@ -2135,6 +2135,7 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_FORCE_RECHARGE,
 	POWER_SUPPLY_PROP_FCC_STEPPER_ENABLE,
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_SLOWLY_CHARGING,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
@@ -2142,7 +2143,6 @@ static enum power_supply_property smb5_batt_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_TYPEC_MODE,
-	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 };
 
 #define DEBUG_ACCESSORY_TEMP_DECIDEGC	250
@@ -2326,7 +2326,7 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 			val->intval = chg->typec_mode;
 		break;
 	default:
-		pr_debug("batt power supply prop %d not supported\n", psp);
+		pr_err("batt power supply prop %d not supported\n", psp);
 		return -EINVAL;
 	}
 
