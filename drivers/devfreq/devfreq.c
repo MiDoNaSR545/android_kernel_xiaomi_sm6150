@@ -1201,7 +1201,7 @@ static ssize_t max_freq_store(struct device *dev, struct device_attribute *attr,
 	 * KGSL GPU devfreq max frequency.
 	 */
 	if (devfreq_is_kgsl_gpu(df) && task_is_booster(current))
-		return count;
+		return -EPERM;
 
 	mutex_lock(&df->event_lock);
 	mutex_lock(&df->lock);
