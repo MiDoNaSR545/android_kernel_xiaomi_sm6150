@@ -5113,7 +5113,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	device->dev->dma_parms =
 		kzalloc(sizeof(*device->dev->dma_parms), GFP_KERNEL);
 
-	dma_set_max_seg_size(device->dev, KGSL_DMA_BIT_MASK);
+	dma_set_max_seg_size(device->dev, (unsigned int)KGSL_DMA_BIT_MASK);
 
 	/* Initialize the memory pools */
 	kgsl_init_page_pools(device->pdev);
@@ -5147,10 +5147,10 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 		qos->type = PM_QOS_REQ_AFFINE_CORES;
 
-		cpumask_empty(&qos->cpus_affine);
+		qos->cpus_affine = 0;
 		for_each_possible_cpu(cpu) {
 			if ((1 << cpu) & device->pwrctrl.l2pc_cpus_mask)
-				cpumask_set_cpu(cpu, &qos->cpus_affine);
+				qos->cpus_affine |= (1UL << cpu);
 		}
 
 		pm_qos_add_request(&device->pwrctrl.l2pc_cpus_qos,
