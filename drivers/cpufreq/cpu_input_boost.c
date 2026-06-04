@@ -81,6 +81,7 @@ static unsigned int get_input_boost_freq(struct cpufreq_policy *policy)
 	return min(freq, policy->max);
 }
 
+#if 0
 static unsigned int get_min_freq(struct cpufreq_policy *policy)
 {
 	unsigned int freq;
@@ -92,6 +93,7 @@ static unsigned int get_min_freq(struct cpufreq_policy *policy)
 
 	return max(freq, policy->min);
 }
+#endif
 
 static void update_online_cpu_policy(void)
 {
