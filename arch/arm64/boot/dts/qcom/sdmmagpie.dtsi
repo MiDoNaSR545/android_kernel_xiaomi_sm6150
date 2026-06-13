@@ -60,7 +60,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "psci";
-			capacity-dmips-mhz = <487>;
+			capacity-dmips-mhz = <488>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_0>;
 			freq-energy-model;
@@ -97,7 +97,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "psci";
-			capacity-dmips-mhz = <487>;
+			capacity-dmips-mhz = <488>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_100>;
 			freq-energy-model;
@@ -130,7 +130,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x200>;
 			enable-method = "psci";
-			capacity-dmips-mhz = <487>;
+			capacity-dmips-mhz = <488>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_200>;
 			freq-energy-model;
@@ -162,7 +162,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x300>;
 			enable-method = "psci";
-			capacity-dmips-mhz = <487>;
+			capacity-dmips-mhz = <488>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_300>;
 			freq-energy-model;
@@ -194,7 +194,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x400>;
 			enable-method = "psci";
-			capacity-dmips-mhz = <487>;
+			capacity-dmips-mhz = <488>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_400>;
 			freq-energy-model;
@@ -226,7 +226,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x500>;
 			enable-method = "psci";
-			capacity-dmips-mhz = <487>;
+			capacity-dmips-mhz = <488>;
 			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
 			next-level-cache = <&L2_500>;
 			freq-energy-model;
@@ -380,16 +380,16 @@
 
 		CPU_COST_0: core-cost0 {
 			busy-cost-data = <
-				300000	146
-				576000	164
-				768000	176
-				1017600	191
-				1248000	209
-				1324800	213
-				1497600	224
-				1612800	230
-				1708800	235
-				1804800	251
+				300000	37
+				576000	51
+				768000	61
+				1017600	78
+				1248000	95
+				1324800	101
+				1497600	112
+				1612800	120
+				1708800	130
+				1804800	148
 			>;
 			idle-cost-data = <
 				16 12 8 6
@@ -398,20 +398,20 @@
 
 		CPU_COST_1: core-cost1 {
 			busy-cost-data = <
-				300000	208
-				652800	266
-				806400	291
-				979200	334
-				1094400	370
-				1209600	395
-				1324800	432
-				1555200	542
-				1708800	622
-				1843200	701
-				1939200	775
-				2169600	998
-				2208000	1016
-				2304000	1101
+				300000	80
+				652800	139
+				806400	165
+				979200	214
+				1094400	249
+				1209600	280
+				1324800	329
+				1555200	427
+				1708800	510
+				1843200	581
+				1939200	649
+				2169600	836
+				2208000	875
+				2304000	995
 			>;
 			idle-cost-data = <
 				100 80 60 40
