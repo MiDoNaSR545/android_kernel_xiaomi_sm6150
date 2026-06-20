@@ -4210,8 +4210,6 @@ retry:
 	if (gfp_mask & __GFP_KSWAPD_RECLAIM)
 		wake_all_kswapds(order, ac);
 
-	/* Boost when memory is low so allocation latency doesn't get too bad */
-	devfreq_boost_kick_max(DEVFREQ_CPU_LLCC_DDR_BW, 100);
 
 	reserve_flags = __gfp_pfmemalloc_flags(gfp_mask);
 	if (reserve_flags)
@@ -4277,6 +4275,9 @@ retry:
 	if (costly_order && (!can_compact ||
 			     !(gfp_mask & __GFP_RETRY_MAYFAIL)))
 		goto nopage;
+
+	/* Boost when memory is low so allocation latency doesn't get too bad */
+	devfreq_boost_kick_max(DEVFREQ_CPU_LLCC_DDR_BW, 100);
 
 	if (should_reclaim_retry(gfp_mask, order, ac, alloc_flags,
 				 did_some_progress > 0, &no_progress_loops))
