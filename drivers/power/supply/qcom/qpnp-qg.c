@@ -2150,12 +2150,12 @@ static int qg_get_ffc_iterm_for_qg(struct qpnp_qg *chip)
 		}
 	} else {
 #ifdef CONFIG_K6_CHARGE
-		if (is_batt_vendor_nvt){
+		if (is_batt_vendor_nvt) {
 			ffc_full_current = FFC_BATT_FULL_NVT_CURRENT;
-			pr_err("ffc_FULL_current nvt is 925\n", rc);
-		}else{
+			pr_err("ffc_FULL_current nvt is 925\n");
+		} else {
 			ffc_full_current = FFC_BATT_FULL_SWD_CURRENT;
-			pr_err("ffc_FULL_current swd is 880\n", rc);
+			pr_err("ffc_FULL_current swd is 880\n");
 		}
 #else
 		ffc_full_current = FFC_BATT_FULL_CURRENT;
@@ -3155,13 +3155,6 @@ static void qg_status_change_work(struct work_struct *work)
 		goto out;
 	}
 
-	if (!chip->usb_psy) {
-		chip->usb_psy = power_supply_get_by_name("usb");
-		if (!chip->usb_psy) {
-			pr_err("Failed to get usb_psy\n");
-		}
-	}
-
 	rc = qg_battery_status_update(chip);
 	if (rc < 0)
 		pr_err("Failed to process battery status update rc=%d\n", rc);
@@ -3177,16 +3170,8 @@ static void qg_status_change_work(struct work_struct *work)
 			POWER_SUPPLY_PROP_STATUS, &prop);
 	if (rc < 0)
 		pr_err("Failed to get charger status, rc=%d\n", rc);
-	else {
-		if (chip->charge_status != prop.intval) {
-			pr_err("%s last_status:%d, curr_status:%d\n", __func__, chip->charge_status, prop.intval);
-			if (chip->usb_psy) {
-				msleep(200);
-				power_supply_changed(chip->usb_psy);
-			}
-		}
+	else
 		chip->charge_status = prop.intval;
-	}
 
 	rc = power_supply_get_property(chip->batt_psy,
 			POWER_SUPPLY_PROP_CHARGE_DONE, &prop);
