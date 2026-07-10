@@ -25,14 +25,6 @@
  * satisfy the overall load at any given moment.
  */
 
-/*
- * Small-task packing: when a task is smaller than CASS_IDLE_ENOUGH_THRES
- * percent of max capacity, prefer packing it onto an already-active CPU with
- * the lowest original capacity. This keeps bigger/faster cores idle when not
- * needed, improving energy efficiency.
- */
-#define CASS_IDLE_ENOUGH_THRES		30
-
 struct cass_cpu_cand {
 	int cpu;
 	unsigned int exit_lat;
@@ -163,54 +155,6 @@ done:
 	return res > 0;
 }
 
-/*
- * Pack a small task onto the lowest-capacity active CPU that has spare cap
- */
-static int cass_find_packing_cpu(struct task_struct *p, int prev_cpu,
-				 unsigned long p_util, unsigned long uc_min)
-{
-	const struct cpumask *allowed_mask = p->cpus_ptr;
-	int cpu, packing_cpu = -1;
-	unsigned long best_cap = ULONG_MAX;
-
-	/* Don't pack large tasks */
-	if (p_util >= CASS_IDLE_ENOUGH_THRES * SCHED_CAPACITY_SCALE / 100)
-		return -1;
-
-	/* Don't pack uclamp-boosted tasks */
-	if (uc_min > 1)
-		return -1;
-
-	/* Find the lowest-capacity active CPU with spare capacity */
-	for_each_cpu_and(cpu, cpu_active_mask, allowed_mask) {
-		unsigned long cpu_cap, cpu_cap_orig, freq_cap;
-
-		/* No benefit in waking an idle CPU for packing */
-		if (available_idle_cpu(cpu))
-			continue;
-
-		/* Skip CPUs already running at high frequency */
-		freq_cap = arch_scale_freq_capacity(cpu);
-		if (freq_cap > SCHED_CAPACITY_SCALE * 45 / 100)
-			continue;
-
-		/* Get available capacity */
-		cpu_cap_orig = capacity_orig_of(cpu);
-		cpu_cap = cpu_cap_orig;
-		if (cpu_cap < p_util + uc_min)
-			continue;
-
-		/* Prefer lowest original capacity for energy efficiency */
-		if (cpu_cap_orig >= best_cap)
-			continue;
-
-		best_cap = cpu_cap_orig;
-		packing_cpu = cpu;
-	}
-
-	return packing_cpu;
-}
-
 static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync, bool rt)
 {
 	/* Initialize @best such that @best always has a valid CPU at the end */
@@ -226,13 +170,6 @@ static int cass_best_cpu(struct task_struct *p, int prev_cpu, bool sync, bool rt
 	 */
 	p_util = rt ? 0 : task_util_est(p);
 	uc_min = uclamp_eff_value(p, UCLAMP_MIN);
-
-	/* Attempt cluster packing for energy efficiency on lightly loaded systems */
-	if (!rt) {
-		int pack_cpu = cass_find_packing_cpu(p, prev_cpu, p_util, uc_min);
-		if (pack_cpu >= 0)
-			return pack_cpu;
-	}
 
 	/*
 	 * Find the best CPU to wake @p on. Although idle_get_state() requires
