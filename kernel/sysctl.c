@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/aio.h>
 #include <linux/mm.h>
+#include <linux/mmzone.h>
 #include <linux/swap.h>
 #include <linux/slab.h>
 #include <linux/sysctl.h>
@@ -1507,6 +1508,9 @@ static int proc_swappiness_handler(struct ctl_table *table, int write,
 	return proc_dointvec_minmax(table, write, buffer, lenp, ppos);
 }
 
+int vm_kcompressd = 24;
+static int SYSCTL_KCOMPRESS_FIFO_SIZE = KCOMPRESS_FIFO_SIZE;
+
 static struct ctl_table vm_table[] = {
 	{
 		.procname	= "overcommit_memory",
@@ -1688,6 +1692,15 @@ static struct ctl_table vm_table[] = {
 		.proc_handler	= hugetlb_overcommit_handler,
 	},
 #endif
+	{
+		.procname	= "kcompressd",
+		.data		= &vm_kcompressd,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler = proc_dointvec_minmax,
+		.extra1		= &zero,
+		.extra2		= &SYSCTL_KCOMPRESS_FIFO_SIZE,
+	},
 	{
 		.procname	= "lowmem_reserve_ratio",
 		.data		= &sysctl_lowmem_reserve_ratio,
