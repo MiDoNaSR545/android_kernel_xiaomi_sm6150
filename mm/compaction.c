@@ -23,6 +23,7 @@
 #include <linux/freezer.h>
 #include <linux/page_owner.h>
 #include <linux/psi.h>
+#include <linux/oom.h>
 #include "internal.h"
 
 #ifdef CONFIG_COMPACTION
@@ -1347,6 +1348,9 @@ static enum compact_result __compact_finished(struct zone *zone,
 		else
 			return COMPACT_PARTIAL_SKIPPED;
 	}
+
+	if (task_is_critical())
+		return COMPACT_SUCCESS;
 
 	if (is_via_compact_memory(cc->order))
 		return COMPACT_CONTINUE;

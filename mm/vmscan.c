@@ -496,6 +496,9 @@ static unsigned long shrink_slab(gfp_t gfp_mask, int nid,
 	if (memcg && (!memcg_kmem_enabled() || !mem_cgroup_online(memcg)))
 		return 0;
 
+	if (task_is_critical())
+		return 0;
+
 	read_lock(&shrinker_rwlock);
 	/* Use the RCU list iteration primitive to allow concurrent additions */
 	list_for_each_entry_rcu(shrinker, &shrinker_list, list) {
