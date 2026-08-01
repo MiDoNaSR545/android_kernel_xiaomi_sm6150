@@ -119,12 +119,10 @@ struct task_struct init_task
 	INIT_IDS
 	INIT_PERF_EVENTS(init_task)
 	INIT_TRACE_IRQFLAGS
-	INIT_LOCKDEP
 	INIT_FTRACE_GRAPH
 	INIT_TRACE_RECURSION
 	INIT_TASK_RCU_PREEMPT(init_task)
 	INIT_TASK_RCU_TASKS(init_task)
-	INIT_TASK_RCU_TRACE(init_task)
 	INIT_CPUSET_SEQ(init_task)
 	INIT_RT_MUTEXES(init_task)
 	INIT_PREV_CPUTIME(init_task)
@@ -133,6 +131,11 @@ struct task_struct init_task
 	INIT_KASAN(init_task)
 	INIT_LIVEPATCH(init_task)
 	INIT_TASK_SECURITY
+	#ifdef CONFIG_TASKS_TRACE_RCU
+	.trc_reader_nesting = 0,
+	.trc_reader_special.s = 0,
+	.trc_holdout_list = LIST_HEAD_INIT(init_task.trc_holdout_list),
+#endif
 };
 
 EXPORT_SYMBOL(init_task);

@@ -597,7 +597,7 @@ void drm_connector_list_iter_end(struct drm_connector_list_iter *iter)
 	iter->dev = NULL;
 	if (iter->conn)
 		drm_connector_put(iter->conn);
-	lock_release(&connector_list_iter_dep_map, 0, _RET_IP_);
+	lock_release(&connector_list_iter_dep_map, _RET_IP_);
 }
 EXPORT_SYMBOL(drm_connector_list_iter_end);
 

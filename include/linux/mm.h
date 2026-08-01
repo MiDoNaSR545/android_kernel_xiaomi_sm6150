@@ -1328,6 +1328,7 @@ static inline void clear_page_pfmemalloc(struct page *page)
 	page->index = 0;
 }
 
+#include <linux/sched/signal.h>
 /*
  * Different kinds of faults, as returned by handle_mm_fault().
  * Used to decide whether a process gets delivered SIGBUS or
@@ -1345,6 +1346,20 @@ static inline void clear_page_pfmemalloc(struct page *page)
 #define VM_FAULT_NOPAGE	0x0100	/* ->fault installed the pte, not return page */
 #define VM_FAULT_LOCKED	0x0200	/* ->fault locked the returned page */
 #define VM_FAULT_RETRY	0x0400	/* ->fault blocked, must retry */
+
+/*
+ * This should only be used in fault handlers to decide whether we
+ * should stop the current fault routine to handle the signals
+ * instead, especially with the case where we've got interrupted with
+ * a VM_FAULT_RETRY.
+ */
+static inline bool fault_signal_pending(vm_fault_t fault_flags,
+                                        struct pt_regs *regs)
+{
+        return unlikely((fault_flags & VM_FAULT_RETRY) &&
+                        (fatal_signal_pending(current) ||
+                         (user_mode(regs) && signal_pending(current))));
+}
 #define VM_FAULT_FALLBACK 0x0800	/* huge page fault failed, fall back to small */
 #define VM_FAULT_DONE_COW   0x1000	/* ->fault has fully handled COW */
 

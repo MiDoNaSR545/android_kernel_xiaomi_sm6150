@@ -148,8 +148,6 @@ extern void syscall_unregfunc(void);
 		if (!(cond))						\
 			return;						\
 		if (rcucheck) {						\
-			if (WARN_ON_ONCE(rcu_irq_enter_disabled()))	\
-				return;					\
 			rcu_irq_enter_irqson();				\
 		}							\
 		rcu_read_lock_sched_notrace();				\

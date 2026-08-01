@@ -2712,14 +2712,8 @@ void __trace_stack(struct trace_array *tr, unsigned long flags, int skip,
 	/*
 	 * It is possible that a function is being traced in a
 	 * location that RCU is not watching. A call to
-	 * rcu_irq_enter() will make sure that it is, but there's
-	 * a few internal rcu functions that could be traced
-	 * where that wont work either. In those cases, we just
-	 * do nothing.
+	 * rcu_irq_enter() will make sure that it is.
 	 */
-	if (unlikely(rcu_irq_enter_disabled()))
-		return;
-
 	rcu_irq_enter_irqson();
 	__ftrace_trace_stack(buffer, flags, skip, pc, NULL);
 	rcu_irq_exit_irqson();

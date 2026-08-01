@@ -306,7 +306,6 @@ restart:
 	}
 
 	__this_cpu_write(active_softirqs, 0);
-	rcu_bh_qs();
 	if (__this_cpu_read(ksoftirqd) == current)
 		rcu_softirq_qs();
 	local_irq_disable();
@@ -683,7 +682,7 @@ static void run_ksoftirqd(unsigned int cpu)
 		 */
 		__do_softirq();
 		local_irq_enable();
-		cond_resched_tasks_rcu_qs();
+		cond_resched();
 		return;
 	}
 	local_irq_enable();

@@ -148,6 +148,8 @@ extern void swake_up(struct swait_queue_head *q);
 extern void swake_up_all(struct swait_queue_head *q);
 extern void swake_up_locked(struct swait_queue_head *q);
 
+#define swake_up_one(q)		swake_up(q)
+
 extern void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait);
 extern void prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait, int state);
 extern long prepare_to_swait_event(struct swait_queue_head *q, struct swait_queue *wait, int state);
@@ -191,6 +193,8 @@ do {									\
 	__swait_event(wq, condition);					\
 } while (0)
 
+#define swait_event_exclusive(wq, condition)		swait_event(wq, condition)
+
 #define __swait_event_timeout(wq, condition, timeout)			\
 	___swait_event(wq, ___wait_cond_timeout(condition),		\
 		      TASK_UNINTERRUPTIBLE, timeout,			\
@@ -204,6 +208,9 @@ do {									\
 	__ret;								\
 })
 
+#define swait_event_timeout_exclusive(wq, condition, timeout)	\
+	swait_event_timeout(wq, condition, timeout)
+
 #define __swait_event_interruptible(wq, condition)			\
 	___swait_event(wq, condition, TASK_INTERRUPTIBLE, 0,		\
 		      schedule())
@@ -215,6 +222,9 @@ do {									\
 		__ret = __swait_event_interruptible(wq, condition);	\
 	__ret;								\
 })
+
+#define swait_event_interruptible_exclusive(wq, condition)	\
+	swait_event_interruptible(wq, condition)
 
 #define __swait_event_interruptible_timeout(wq, condition, timeout)	\
 	___swait_event(wq, ___wait_cond_timeout(condition),		\
@@ -252,6 +262,9 @@ do {									\
 	__swait_event_idle(wq, condition);				\
 } while (0)
 
+#define swait_event_idle_exclusive(wq, condition)	\
+	swait_event_idle(wq, condition)
+
 #define __swait_event_idle_timeout(wq, condition, timeout)		\
 	___swait_event(wq, ___wait_cond_timeout(condition),		\
 		       TASK_IDLE, timeout,				\
@@ -284,5 +297,8 @@ do {									\
 						   condition, timeout);	\
 	__ret;								\
 })
+
+#define swait_event_idle_timeout_exclusive(wq, condition, timeout)	\
+	swait_event_idle_timeout(wq, condition, timeout)
 
 #endif /* _LINUX_SWAIT_H */

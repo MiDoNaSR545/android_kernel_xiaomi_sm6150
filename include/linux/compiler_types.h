@@ -205,8 +205,13 @@ struct ftrace_likely_data {
 #ifndef __always_inline
 #define __always_inline inline
 #endif
-
 #endif /* __KERNEL__ */
+
+#if defined(__KERNEL__) && !defined(__ASSEMBLY__)
+/* Section for code which can't be instrumented at all */
+#define noinstr								\
+	noinline notrace __attribute((__section__(".noinstr.text")))
+#endif
 
 /*
  * From the GCC manual:
