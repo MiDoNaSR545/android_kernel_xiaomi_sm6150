@@ -606,7 +606,7 @@ int msm_vidc_check_ratelimit(void)
 	return __ratelimit(&_rs);
 }
 #else /* CONFIG_DEBUG_KERNEL */
-int msm_vidc_debug = 0
+int msm_vidc_debug = 0;
 EXPORT_SYMBOL(msm_vidc_debug);
 
 int msm_vidc_debug_out = 0;
