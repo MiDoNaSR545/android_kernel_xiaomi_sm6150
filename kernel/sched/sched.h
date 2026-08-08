@@ -44,6 +44,7 @@
 #include "cpudeadline.h"
 #include "cpuacct.h"
 #include "features.h"
+#include "mlfq_sched.h"
 
 #ifdef CONFIG_SCHED_DEBUG
 # define SCHED_WARN_ON(x)	WARN_ONCE(x, #x)
