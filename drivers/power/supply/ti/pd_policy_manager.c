@@ -762,22 +762,9 @@ static int usbpd_pm_enable_sw(struct usbpd_pm *pdpm, bool enable)
 
 static int usbpd_pm_check_slowly_charging_enabled(struct usbpd_pm *pdpm)
 {
-	int ret;
-	union power_supply_propval val = {0,};
+	pdpm->sw.slowly_charging = false;
 
-	if (!pdpm->sw_psy) {
-		pdpm->sw_psy = power_supply_get_by_name("battery");
-		if (!pdpm->sw_psy) {
-			return -ENODEV;
-		}
-	}
-
-	ret = power_supply_get_property(pdpm->sw_psy,
-			POWER_SUPPLY_PROP_SLOWLY_CHARGING, &val);
-	if (!ret)
-		pdpm->sw.slowly_charging = !!val.intval;
-
-	return ret;
+	return 0;
 }
 
 static int usbpd_pm_limit_sw(struct usbpd_pm *pdpm, bool enable)
@@ -1095,12 +1082,9 @@ static int usbpd_pm_fc2_charge_algo(struct usbpd_pm *pdpm)
 	if (pdpm->cp.bat_therm_fault) { /* battery overheat, stop charge*/
 		pr_err("bat_therm_fault:%d\n", pdpm->cp.bat_therm_fault);
 		return PM_ALGO_RET_THERM_FAULT;
-	} else if (pdpm->is_temp_out_fc2_range
-			|| (thermal_level >= MAX_THERMAL_LEVEL
-			&& pdpm->cp.sc8551_charge_mode != SC8551_CHARGE_MODE_BYPASS)
-			|| (thermal_level >= BYPASS_THERMAL_EXIT_LEVEL
-			&& pdpm->cp.sc8551_charge_mode == SC8551_CHARGE_MODE_BYPASS)) {
-		pr_err("thermal level too high or batt temp is out of fc2 range\n");
+	} else if (pdpm->is_temp_out_fc2_range) {
+		pr_err("batt temp is out of fc2 range, thermal_level=%d\n",
+				thermal_level);
 		return PM_ALGO_RET_CHG_DISABLED;
 	} else if (pdpm->cp.bat_ocp_fault || pdpm->cp.bus_ocp_fault
 			|| pdpm->cp.bat_ovp_fault || pdpm->cp.bus_ovp_fault) {
@@ -1253,12 +1237,9 @@ static int usbpd_pm_sm(struct usbpd_pm *pdpm)
 				recover = true;
 		} else if (!pd_get_bms_digest_verified(pdpm)) {
 			pr_err("bms digest is not verified, waiting...\n");
-		} else if (pdpm->is_temp_out_fc2_range
-			|| (thermal_level >= MAX_THERMAL_LEVEL
-			&& pdpm->cp.sc8551_charge_mode != SC8551_CHARGE_MODE_BYPASS)
-			|| (thermal_level >= BYPASS_THERMAL_EXIT_LEVEL
-			&& pdpm->cp.sc8551_charge_mode == SC8551_CHARGE_MODE_BYPASS)) {
-			pr_err("thermal too high or batt temp is out of fc2 range, waiting...\n");
+		} else if (pdpm->is_temp_out_fc2_range) {
+			pr_err("batt temp is out of fc2 range, waiting... thermal_level=%d\n",
+					thermal_level);
 		} else if (pdpm->sw.slowly_charging) {
 			pr_err("slowly charging feature is on, waiting...\n");
 		} else if (effective_fcc_val < LOW_POWER_PPS_CURR_THR) {
@@ -1371,9 +1352,6 @@ static int usbpd_pm_sm(struct usbpd_pm *pdpm)
 				pr_err("gx sec cp reinit...\n");
 				pval.intval = 1;
 				power_supply_set_property(pdpm->cp_sec_psy,POWER_SUPPLY_PROP_SEC_CP_INIT_DEVICE, &pval);
-		} else {
-				pr_err("gx exit cp \n");
-				usbpd_pm_move_state(pdpm, PD_PM_STATE_FC2_EXIT);
 		}
 		if (pm_config.cp_sec_enable && !pdpm->cp_sec.charge_enabled) {
 			usbpd_pm_enable_cp_sec(pdpm, true);
@@ -1411,8 +1389,7 @@ static int usbpd_pm_sm(struct usbpd_pm *pdpm)
 		}
 #endif
 		if (!is_std_battery) {
-				pr_err("gx exit cp \n");
-				usbpd_pm_move_state(pdpm, PD_PM_STATE_FC2_EXIT);
+				pr_err("gx cp continue for non-std battery\n");
 		}
 
 		usbpd_update_pps_status(pdpm);
@@ -1598,16 +1575,6 @@ static void usbpd_pps_non_verified_contact(struct usbpd_pm *pdpm, bool connected
 		usbpd_pm_evaluate_src_caps(pdpm);
 		
 		if (pdpm->pps_supported){
-			if (!pdpm->fcc_votable)
-				pdpm->fcc_votable = find_votable("FCC");
-
-			if ((pdpm->apdo_max_volt / 1000) * (pdpm->apdo_max_curr / 1000) < 33) {
-				if (pdpm->fcc_votable)
-					vote(pdpm->fcc_votable, PD_UNVERIFED_VOTER, true, PD_UNVERIFED_CURRENT_LOW);
-			} else {
-				if (pdpm->fcc_votable)
-					vote(pdpm->fcc_votable, PD_UNVERIFED_VOTER, true, PD_UNVERIFED_CURRENT_HIGH);
-			}
 			schedule_delayed_work(&pdpm->pm_work, 5*HZ);
 		}
 	} else {
