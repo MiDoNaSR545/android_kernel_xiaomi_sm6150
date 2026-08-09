@@ -1052,9 +1052,11 @@ static int pd_select_pdo_for_bq(struct usbpd *pd, int pdo_pos, int uv, int ua)
 		curr = ua / 1000;
 
                 /* if limit_pd_vbus is enabled, pd request uv will less than pd vbus max */
+#if 0
                 if (pd->limit_pd_unverified_pps_vbus
 		&& uv > pd->pd_unverified_pps_max_vbus_limit && !pd->verifed)
                         uv = pd->pd_unverified_pps_max_vbus_limit;
+#endif
 
 		/*
 		 * workaround for Zimi and similar non-compliant QC4+/PPS chargers:

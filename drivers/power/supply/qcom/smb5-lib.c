@@ -982,10 +982,10 @@ set_term:
 	smb5_config_iterm(chg, termi, 0);
 
 	rc = vote(chg->fcc_votable, PD_VERIFED_VOTER,
-			!enable, PD_UNVERIFED_CURRENT);
+			false, PD_UNVERIFED_CURRENT);
 
 	rc = vote(chg->fv_votable, PD_VERIFED_VOTER,
-			!enable, PD_UNVERIFED_VOLTAGE);
+			false, PD_UNVERIFED_VOLTAGE);
 
 	pr_info("fastcharge mode:%d termi:%d\n", enable, termi);
 
@@ -2931,18 +2931,7 @@ int smblib_get_prop_battery_slowly_charging(struct smb_charger *chg,
 int smblib_set_prop_battery_slowly_charging(struct smb_charger *chg,
 					const union power_supply_propval *val)
 {
-	if (val->intval ^ chg->slowly_charging) {
-		if (val->intval) {
-			vote(chg->fcc_votable, SLOWLY_CHARGING_VOTER,
-							true, SLOWLY_CHARGING_CURRENT);
-		} else {
-
-			vote(chg->fcc_votable, SLOWLY_CHARGING_VOTER, false, 0);
-		}
-		chg->slowly_charging = (bool)val->intval;
-		rerun_election(chg->fcc_votable);
-		pr_info("slowly charging enabled[%d]\n", val->intval);
-	}
+	chg->slowly_charging = (bool)val->intval;
 
 	return 0;
 }
@@ -3261,10 +3250,9 @@ static int smblib_therm_charging(struct smb_charger *chg)
 		}
 #endif
 		if (thermal_fcc_ua > 0) {
-			rc = vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, true,
-					thermal_fcc_ua);
+			rc = vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, false, 0);
 			if (rc < 0)
-				pr_err("Couldn't enable USB thermal ICL vote rc=%d\n",
+				pr_err("Couldn't Disable USB thermal ICL vote rc=%d\n",
 						rc);
 		}
 	}
@@ -6145,13 +6133,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
 		vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, false, 0);
 
-		/*set the icl to PD_UNVERIFED_CURRENT when pd is not verifed*/
-		if (!chg->pd_verifed) {
-			rc = vote(chg->fcc_votable, PD_VERIFED_VOTER, true, PD_UNVERIFED_CURRENT);
-			if (rc < 0)
-				smblib_err(chg, "Couldn't unvote PD_VERIFED_VOTER, rc=%d\n", rc);
-		}
-
 		if (chg->pd_active == POWER_SUPPLY_PD_ACTIVE) {
 			vote(chg->fcc_votable, PD_NOPPS_VOTER, true, PD_NOPPS_CURRENT);
 		} else {
@@ -8345,7 +8326,7 @@ static void typec_src_removal(struct smb_charger *chg)
 	vote(chg->awake_votable, CHG_AWAKE_VOTER, false, 0);
 	vote(chg->fcc_votable, CLASSA_QC_FCC_VOTER, false, 0);
 	vote(chg->fcc_votable, PD_REMOVE_COMP_VOTER, false, 0);
-	vote(chg->fcc_votable, PD_VERIFED_VOTER, true, PD_UNVERIFED_CURRENT);
+	vote(chg->fcc_votable, PD_VERIFED_VOTER, false, 0);
 	vote(chg->fcc_votable, PD_NOPPS_VOTER, false, 0);
 	vote(chg->usb_icl_votable, QC_A_CP_ICL_MAX_VOTER, false, 0);
 	vote(chg->usb_icl_votable, QC2_UNSUPPORTED_VOTER, false, 0);
