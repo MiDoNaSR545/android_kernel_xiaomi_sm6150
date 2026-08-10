@@ -325,7 +325,7 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 	name = kstrdup(page, GFP_KERNEL);
 	if (!name)
 		return -ENOMEM;
-	if (len && name[len - 1] == '\n')
+	if (name[len - 1] == '\n')
 		name[len - 1] = '\0';
 
 	mutex_lock(&gi->lock);
@@ -445,11 +445,6 @@ static int config_usb_cfg_link(
 	 * from another gadget or a random directory.
 	 * Also a function instance can only be linked once.
 	 */
-	if (gi->composite.gadget_driver.udc_name) {
-		ret = -EINVAL;
-		goto out;
-	}
-
 	list_for_each_entry(a_fi, &gi->available_func, cfs_list) {
 		if (a_fi == fi)
 			break;
@@ -874,7 +869,7 @@ static ssize_t os_desc_qw_sign_store(struct config_item *item, const char *page,
 	int res, l;
 
 	l = min((int)len, OS_STRING_QW_SIGN_LEN >> 1);
-	if (l && page[l - 1] == '\n')
+	if (page[l - 1] == '\n')
 		--l;
 
 	mutex_lock(&gi->lock);
@@ -1041,7 +1036,7 @@ static ssize_t ext_prop_data_store(struct config_item *item,
 	char *new_data;
 	size_t ret_len = len;
 
-	if (len && (page[len - 1] == '\n' || page[len - 1] == '\0'))
+	if (page[len - 1] == '\n' || page[len - 1] == '\0')
 		--len;
 	new_data = kmemdup(page, len, GFP_KERNEL);
 	if (!new_data)
@@ -1167,7 +1162,7 @@ static ssize_t interf_grp_compatible_id_store(struct config_item *item,
 	int l;
 
 	l = min_t(int, 8, len);
-	if (l && page[l - 1] == '\n')
+	if (page[l - 1] == '\n')
 		--l;
 	if (desc->opts_mutex)
 		mutex_lock(desc->opts_mutex);
@@ -1193,7 +1188,7 @@ static ssize_t interf_grp_sub_compatible_id_store(struct config_item *item,
 	int l;
 
 	l = min_t(int, 8, len);
-	if (l && page[l - 1] == '\n')
+	if (page[l - 1] == '\n')
 		--l;
 	if (desc->opts_mutex)
 		mutex_lock(desc->opts_mutex);
@@ -1374,8 +1369,6 @@ static int configfs_composite_bind(struct usb_gadget *gadget,
 		cdev->use_os_string = true;
 		cdev->b_vendor_code = gi->b_vendor_code;
 		memcpy(cdev->qw_sign, gi->qw_sign, OS_STRING_QW_SIGN_LEN);
-	} else {
-		cdev->use_os_string = false;
 	}
 
 	if (gadget_is_otg(gadget) && !otg_desc[0]) {

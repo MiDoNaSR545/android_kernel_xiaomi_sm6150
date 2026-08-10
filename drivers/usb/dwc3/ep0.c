@@ -317,10 +317,8 @@ void dwc3_ep0_out_start(struct dwc3 *dwc)
 	dwc3_ep0_prepare_one_trb(dep, dwc->ep0_trb_addr, 8,
 			DWC3_TRBCTL_CONTROL_SETUP, false);
 	ret = dwc3_ep0_start_trans(dep);
-	if (ret < 0) {
-		dev_err(dwc->dev, "ep0 out start transfer failed: %d\n", ret);
+	if (WARN_ON(ret < 0))
 		dbg_event(dwc->eps[0]->number, "EOUTSTART", ret);
-	}
 }
 
 static struct dwc3_ep *dwc3_wIndex_to_dep(struct dwc3 *dwc, __le16 wIndex_le)
@@ -837,11 +835,8 @@ static void dwc3_ep0_set_sel_cmpl(struct usb_ep *ep, struct usb_request *req)
 	/* now that we have the time, issue DGCMD Set Sel */
 	ret = dwc3_send_gadget_generic_command(dwc,
 			DWC3_DGCMD_SET_PERIODIC_PAR, param);
-	if (ret < 0) {
-		dev_err(dwc->dev,
-			"ep0 periodic param command failed: %d\n", ret);
+	if (WARN_ON(ret < 0))
 		dbg_event(dep->number, "ESET_SELCMPL", ret);
-	}
 }
 
 static int dwc3_ep0_set_sel(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
@@ -1212,9 +1207,7 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 		ret = dwc3_ep0_start_trans(dep);
 	}
 
-	if (ret < 0)
-		dev_err(dwc->dev,
-			"ep0 data phase start transfer failed: %d\n", ret);
+	WARN_ON(ret < 0);
 	dbg_queue(dep->number, &req->request, ret);
 }
 
@@ -1235,11 +1228,8 @@ static void __dwc3_ep0_do_control_status(struct dwc3 *dwc, struct dwc3_ep *dep)
 	int ret;
 
 	ret = dwc3_ep0_start_control_status(dep);
-	if (ret) {
-		dev_err(dwc->dev,
-			"ep0 status phase start transfer failed: %d\n", ret);
+	if (WARN_ON_ONCE(ret))
 		dbg_event(dep->number, "ECTRLSTATUS", ret);
-	}
 }
 
 static void dwc3_ep0_do_control_status(struct dwc3 *dwc,

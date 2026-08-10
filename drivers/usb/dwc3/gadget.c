@@ -284,21 +284,19 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
 	return 0;
 }
 
-static bool dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
+void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 		struct dwc3_request *req, int status)
 {
 	struct dwc3			*dwc = dep->dwc;
 
-	/* Another remove/giveback path may have completed this request already. */
-	if (req->request.status != -EINPROGRESS)
-		return false;
-
-	req->request.status = status;
 	req->started = false;
 	list_del(&req->list);
 	req->remaining = 0;
 	req->unaligned = false;
 	req->zero = false;
+
+	if (req->request.status == -EINPROGRESS)
+		req->request.status = status;
 
 	if (req->trb) {
 		dbg_ep_unmap(dep->number, req);
@@ -308,7 +306,6 @@ static bool dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 
 	req->trb = NULL;
 	trace_dwc3_gadget_giveback(req);
-	return true;
 }
 
 /**
@@ -326,8 +323,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 {
 	struct dwc3			*dwc = dep->dwc;
 
-	if (!dwc3_gadget_del_and_unmap_request(dep, req, status))
-		return;
+	dwc3_gadget_del_and_unmap_request(dep, req, status);
 
 	if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 		if (list_empty(&dep->started_list)) {
@@ -2537,8 +2533,6 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 	 */
 	reg = dwc3_readl(dwc->regs, DWC3_GRXTHRCFG);
 	reg &= ~DWC3_GRXTHRCFG_PKTCNTSEL;
-	if (!dwc3_is_usb3(dwc))
-		reg &= ~DWC31_GRXTHRCFG_PKTCNTSEL;
 	dwc3_writel(dwc->regs, DWC3_GRXTHRCFG, reg);
 
 	/*
@@ -3143,14 +3137,6 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 		break;
 	case DWC3_DEPEVT_XFERNOTREADY:
 		dep->dbg_ep_events.xfernotready++;
-		/*
-		 * During a device-initiated disconnect, a late xferNotReady
-		 * event can be generated after the End Transfer command resets
-		 * the event filter, but before the controller is halted.
-		 * Ignore it to prevent a new transfer from starting.
-		 */
-		if (!dwc->connected)
-			break;
 		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
 			dwc3_gadget_start_isoc(dwc, dep, event);
 		} else {
@@ -3294,9 +3280,7 @@ int dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
 	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
 	memset(&params, 0, sizeof(params));
 	ret = dwc3_send_gadget_ep_cmd(dep, cmd, &params);
-	if (ret)
-		dev_err_ratelimited(dwc->dev,
-			"end transfer failed for %s: %d\n", dep->name, ret);
+	WARN_ON_ONCE(ret);
 	dep->resource_index = 0;
 	dep->flags &= ~DWC3_EP_BUSY;
 
@@ -3330,9 +3314,7 @@ static void dwc3_clear_stall_all_ep(struct dwc3 *dwc)
 
 		ret = dwc3_send_clear_stall_ep_cmd(dep);
 		dbg_event(dep->number, "ECLRSTALL", ret);
-		if (ret)
-			dev_err_ratelimited(dwc->dev,
-				"failed to clear STALL on %s\n", dep->name);
+		WARN_ON_ONCE(ret);
 	}
 }
 
@@ -3960,10 +3942,12 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 
 	start_time = ktime_get();
 
+	local_bh_disable();
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->bh_handled_evt_cnt[dwc->irq_dbg_index] = 0;
 	ret = dwc3_process_event_buf(evt);
 	spin_unlock_irqrestore(&dwc->lock, flags);
+	local_bh_enable();
 
 	dwc->bh_completion_time[dwc->irq_dbg_index] =
 		ktime_to_us(ktime_sub(ktime_get(), start_time));

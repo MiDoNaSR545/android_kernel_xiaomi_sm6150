@@ -182,7 +182,7 @@ struct ffs_data {
 	/* reference counter */
 	refcount_t			ref;
 	/* how many files are opened (EP0 and others) */
-	int				opened;
+	atomic_t			opened;
 
 	/* EP0 state */
 	enum ffs_state			state;
