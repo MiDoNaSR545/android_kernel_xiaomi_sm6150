@@ -277,6 +277,13 @@ static inline int cpuidle_register_governor(struct cpuidle_governor *gov)
 	__ret ? -1 : idx;					\
 })
 
+#ifdef CONFIG_SMP
+void cpuidle_set_idle_cpu(unsigned int cpu);
+void cpuidle_clear_idle_cpu(unsigned int cpu);
+#else
+static inline void cpuidle_set_idle_cpu(unsigned int cpu) { }
+static inline void cpuidle_clear_idle_cpu(unsigned int cpu) { }
+#endif
 #ifdef CONFIG_MSM_PM
 extern bool lpm_sleep_disabled(void);
 #else

@@ -37,6 +37,24 @@ static int enabled_devices;
 static int off __read_mostly;
 static int initialized __read_mostly;
 
+#ifdef CONFIG_SMP
+static atomic_t idled = ATOMIC_INIT(0);
+
+#if NR_CPUS > 32
+#error idled CPU mask not big enough for NR_CPUS
+#endif
+
+void cpuidle_set_idle_cpu(unsigned int cpu)
+{
+	atomic_or(BIT(cpu), &idled);
+}
+
+void cpuidle_clear_idle_cpu(unsigned int cpu)
+{
+	atomic_andnot(BIT(cpu), &idled);
+}
+#endif
+
 int cpuidle_disabled(void)
 {
 	return off;
@@ -646,24 +664,6 @@ int cpuidle_register(struct cpuidle_driver *drv,
 EXPORT_SYMBOL_GPL(cpuidle_register);
 
 #ifdef CONFIG_SMP
-
-static void wake_up_idle_cpus(void *v)
-{
-	int cpu;
-	struct cpumask cpus;
-
-	preempt_disable();
-	if (v)
-		cpumask_and(&cpus, &cpus, cpu_online_mask);
-
-	for_each_cpu(cpu, &cpus) {
-		if (cpu == smp_processor_id())
-			continue;
-		wake_up_if_idle(cpu);
-	}
-	preempt_enable();
-}
-
 /*
  * This function gets called when a part of the kernel has a new latency
  * requirement.  This means we need to get only those processors out of their
@@ -673,8 +673,12 @@ static void wake_up_idle_cpus(void *v)
 static int cpuidle_latency_notify(struct notifier_block *b,
 		unsigned long l, void *v)
 {
-	if (!lpm_sleep_disabled())
-		wake_up_idle_cpus(v);
+	unsigned long cpus = atomic_read(&idled) & *cpumask_bits(to_cpumask(v));
+
+	if (!lpm_sleep_disabled()) {
+		if (cpus)
+			smp_send_ipi(to_cpumask(&cpus));
+	}
 
 	return NOTIFY_OK;
 }
