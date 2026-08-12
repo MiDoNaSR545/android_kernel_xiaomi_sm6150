@@ -892,22 +892,6 @@ static const struct usb_device_id	products[] = {
 	.driver_info = 0,
 },
 
-/* USB-C 3.1 to 5GBASE-T Ethernet Adapter (based on AQC111U) */
-{
-	USB_DEVICE_AND_INTERFACE_INFO(0x20f4, 0xe05a, USB_CLASS_COMM,
-				      USB_CDC_SUBCLASS_ETHERNET,
-				      USB_CDC_PROTO_NONE),
-	.driver_info = 0,
-},
-
-/* QNAP QNA-UC5G1T USB to 5GbE Adapter (based on AQC111U) */
-{
-	USB_DEVICE_AND_INTERFACE_INFO(0x1c04, 0x0015, USB_CLASS_COMM,
-				      USB_CDC_SUBCLASS_ETHERNET,
-				      USB_CDC_PROTO_NONE),
-	.driver_info = 0,
-},
-
 /* WHITELIST!!!
  *
  * CDC Ether uses two interfaces, not necessarily consecutive.
