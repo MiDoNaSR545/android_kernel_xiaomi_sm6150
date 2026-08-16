@@ -207,7 +207,7 @@ static inline void bio_advance_iter_single(const struct bio *bio,
 	for (iter = (start);						\
 	     (iter).bi_size &&						\
 		((bvl = mp_bvec_iter_bvec((bio)->bi_io_vec, (iter))), 1); \
-	     bio_advance_iter_single((bio), &(iter), (bvl).bv_len))
+	     bio_advance_iter((bio), &(iter), (bvl).bv_len))
 
 /* iterate over multi-page bvec */
 #define bio_for_each_bvec(bvl, bio, iter)			\
