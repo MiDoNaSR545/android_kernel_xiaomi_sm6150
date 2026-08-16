@@ -238,11 +238,14 @@ int elevator_init(struct request_queue *q, char *name)
 
 	if (!e) {
 		/*
-		 * For blk-mq devices, we use the multi-queue default
-		 * scheduler if available. If not available, default to "none".
+		 * For blk-mq devices, we default to using mq-deadline,
+		 * if available, for single queue devices. If deadline
+		 * isn't available OR we have multiple queues, default
+		 * to "none".
 		 */
 		if (q->mq_ops) {
-			e = elevator_get(q, CONFIG_DEFAULT_MQ_IOSCHED, false);
+			if (q->nr_hw_queues == 1)
+				e = elevator_get(q, "mq-deadline", false);
 			if (!e)
 				return 0;
 		} else

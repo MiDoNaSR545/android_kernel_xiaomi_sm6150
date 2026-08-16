@@ -76,28 +76,6 @@ config DEFAULT_IOSCHED
 	default "zen" if DEFAULT_ZEN
 	default "noop" if DEFAULT_NOOP
 
-choice
-
-	prompt "Default multi-queue I/O scheduler"
-	default DEFAULT_MQ_KYBER
-	help
-	  Select the multi-queue I/O scheduler which will be used by default for
-	  block devices that use the blk-mq subsystem (modern high-performance
-	  devices).
-
-	config DEFAULT_MQ_DEADLINE
-		bool "mq-deadline" if MQ_IOSCHED_DEADLINE=y
-
-	config DEFAULT_MQ_KYBER
-		bool "Kyber" if MQ_IOSCHED_KYBER=y
-
-endchoice
-
-config DEFAULT_MQ_IOSCHED
-	string
-	default "mq-deadline" if DEFAULT_MQ_DEADLINE
-	default "kyber" if DEFAULT_MQ_KYBER
-
 config MQ_IOSCHED_DEADLINE
 	tristate "MQ deadline I/O scheduler"
 	default y
