@@ -1310,6 +1310,22 @@ static inline void mlfq_account_runtime(struct sched_entity *se, u64 delta_exec)
 
 	p = task_of(se);
 	p->mlfq.ema = mlfq_ema_climb(p->mlfq.ema, delta_exec);
+	mlfq_stat_add(MLFQ_STAT_TOTAL_RUNTIME, delta_exec);
+}
+
+/*
+ * A task is being switched in. scx_mlfq counted this in ops.running(), which
+ * sched_ext called once per transition onto a CPU; @first is what distinguishes
+ * that from set_next_task_fair() merely re-establishing cfs_rq->curr after a
+ * policy or cgroup change. Group entities are walked through here too, so the
+ * task check is what keeps this one count per switch-in.
+ */
+static inline void mlfq_account_running(struct sched_entity *se, bool first)
+{
+	if (!sched_feat(MLFQ) || !first || !entity_is_task(se))
+		return;
+
+	mlfq_stat_inc(MLFQ_STAT_ON_CPU);
 }
 
 /*
@@ -5058,6 +5074,7 @@ set_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, bool first)
 	}
 
 	se->prev_sum_exec_runtime = se->sum_exec_runtime;
+	mlfq_account_running(se, first);
 }
 
 static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags);
@@ -6280,9 +6297,11 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	 * happens in update_deadline(), and the task only reaches this point
 	 * afterwards as an ordinary requeue.
 	 */
-	if (sched_feat(MLFQ))
+	if (sched_feat(MLFQ)) {
 		mlfq_classify_enqueue(p, rq_clock_task(rq),
 				      flags & (ENQUEUE_WAKEUP | ENQUEUE_DELAYED));
+		mlfq_runnable_enter(cpu_of(rq), &p->mlfq);
+	}
 
 	if (flags & ENQUEUE_DELAYED) {
 		requeue_delayed_entity(se);
@@ -6427,8 +6446,19 @@ static int dequeue_entities(struct rq *rq, struct sched_entity *se, int flags)
 	 * earlier and is only being taken off the tree here, so its original
 	 * timestamp is the one to keep.
 	 */
-	if (sched_feat(MLFQ) && (flags & DEQUEUE_SLEEP) && !p->se.sched_delayed)
-		p->mlfq.last_sleep_at = rq_clock_task(rq);
+	if (sched_feat(MLFQ)) {
+		if ((flags & DEQUEUE_SLEEP) && !p->se.sched_delayed)
+			p->mlfq.last_sleep_at = rq_clock_task(rq);
+
+		/*
+		 * Every dequeue takes the task back out of the level it was
+		 * counted into, including the one that only marks it delayed: a
+		 * delayed task has blocked and is not waiting for a CPU, and the
+		 * ENQUEUE_DELAYED wakeup counts it back in. This has to happen
+		 * before dequeue_entities(), after which @p may not be touched.
+		 */
+		mlfq_runnable_exit(cpu_of(rq), &p->mlfq);
+	}
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
