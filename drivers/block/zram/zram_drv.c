@@ -2449,7 +2449,7 @@ static ssize_t disksize_store(struct device *dev,
 		zram_size_set_once = true;
 		pr_info("Setting zRAM size to %llu GB", disksize / 1073741824);
 	} else {
-		disksize = PAGE_ALIGN(disksize);
+		disksize = memparse(buf, NULL);
 		if (!disksize)
 			return -EINVAL;
 	}
