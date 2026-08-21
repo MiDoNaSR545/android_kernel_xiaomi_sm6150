@@ -117,6 +117,11 @@ extern unsigned int sysctl_nr_open_min, sysctl_nr_open_max;
 extern int sysctl_nr_trim_pages;
 #endif
 
+/* Constants used for minimum and  maximum */
+#ifdef CONFIG_LOCKUP_DETECTOR
+static int sixty = 60;
+#endif
+
 static int __maybe_unused neg_one = -1;
 static int __maybe_unused neg_three = -3;
 
@@ -129,7 +134,6 @@ static int int_max = INT_MAX;
 static unsigned long zero_ul;
 static unsigned long one_ul = 1;
 static unsigned long long_max = LONG_MAX;
-static int sixty = 60;
 static int one_hundred = 100;
 static int one_thousand = 1000;
 #ifdef CONFIG_SCHED_WALT
@@ -144,10 +148,6 @@ static int six_hundred_forty_kb = 640 * 1024;
 #endif
 static int __maybe_unused two_hundred_million = 200000000;
 
-
-#ifdef CONFIG_OPLUS_MM_HACKS
-extern int direct_vm_swappiness;
-#endif /* CONFIG_OPLUS_MM_HACKS */
 
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
 static unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
@@ -1497,6 +1497,16 @@ static struct ctl_table kern_table[] = {
 	{ }
 };
 
+static int proc_swappiness_handler(struct ctl_table *table, int write,
+				   void __user *buffer, size_t *lenp,
+				   loff_t *ppos)
+{
+	if (task_is_booster(current))
+		return 0;
+
+	return proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+}
+
 static struct ctl_table vm_table[] = {
 	{
 		.procname	= "overcommit_memory",
@@ -1563,7 +1573,7 @@ static struct ctl_table vm_table[] = {
 		.procname	= "dirty_background_ratio",
 		.data		= &dirty_background_ratio,
 		.maxlen		= sizeof(dirty_background_ratio),
-		.mode		= 0444,
+		.mode		= 0644,
 		.proc_handler	= dirty_background_ratio_handler,
 		.extra1		= &zero,
 		.extra2		= &one_hundred,
@@ -1580,7 +1590,7 @@ static struct ctl_table vm_table[] = {
 		.procname	= "dirty_ratio",
 		.data		= &vm_dirty_ratio,
 		.maxlen		= sizeof(vm_dirty_ratio),
-		.mode		= 0444,
+		.mode		= 0644,
 		.proc_handler	= dirty_ratio_handler,
 		.extra1		= &zero,
 		.extra2		= &one_hundred,
@@ -1604,8 +1614,8 @@ static struct ctl_table vm_table[] = {
 		.procname	= "dirty_expire_centisecs",
 		.data		= &dirty_expire_interval,
 		.maxlen		= sizeof(dirty_expire_interval),
-		.mode		= 0444,
-		.proc_handler	= proc_dointvec_minmax,
+		.mode		= 0644,
+		.proc_handler	= proc_swappiness_handler,
 		.extra1		= &zero,
 	},
 	{
@@ -1626,21 +1636,10 @@ static struct ctl_table vm_table[] = {
 		.data		= &vm_swappiness,
 		.maxlen		= sizeof(vm_swappiness),
 		.mode		= 0444,
-		.proc_handler	= proc_dointvec_minmax,
+		.proc_handler	= proc_swappiness_handler,
 		.extra1		= &zero,
 		.extra2		= &one_hundred,
 	},
-#ifdef CONFIG_OPLUS_MM_HACKS
-	{
-		.procname	= "direct_swappiness",
-		.data		= &direct_vm_swappiness,
-		.maxlen 	= sizeof(direct_vm_swappiness),
-		.mode		= 0444,
-		.proc_handler	= proc_dointvec_minmax,
-		.extra1 	= &zero,
-		.extra2 	= &sixty,
-	},
-#endif /* CONFIG_OPLUS_MM_HACKS */
 	{
 		.procname       = "want_old_faultaround_pte",
 		.data           = &want_old_faultaround_pte,
@@ -1745,7 +1744,7 @@ static struct ctl_table vm_table[] = {
 		.procname	= "watermark_scale_factor",
 		.data		= &watermark_scale_factor,
 		.maxlen		= sizeof(watermark_scale_factor),
-		.mode		= 0444,
+		.mode		= 0644,
 		.proc_handler	= watermark_scale_factor_sysctl_handler,
 		.extra1		= &one,
 		.extra2		= &one_thousand,
