@@ -10,6 +10,11 @@
  * Give new tasks half a slice to ease into the competition.
  */
 #define SCHED_FEAT_PLACE_DEADLINE_INITIAL 0
+#define SCHED_FEAT_PLACE_REL_DEADLINE 0
+/*
+ * Preserve relative virtual deadline on 'migration'.
+ */
+#define SCHED_FEAT_PLACE_REL_DEADLINE 1
 /*
  * Inhibit (wakeup) preemption until the current task has either matched the
  * 0-lag point or until is has exhausted it's slice.
@@ -24,10 +29,33 @@
 #define SCHED_FEAT_NEXT_BUDDY 0
 
 /*
+ * Allow completely ignoring cfs_rq->next; which can be set from various
+ * places:
+ *   - NEXT_BUDDY (wakeup preemption)
+ *   - yield_to_task()
+ *   - cgroup dequeue / pick
+ */
+#define SCHED_FEAT_PICK_BUDDY 1
+
+/*
  * Consider buddies to be cache hot, decreases the likeliness of a
  * cache buddy being migrated away, increases cache locality.
  */
 #define SCHED_FEAT_CACHE_HOT_BUDDY 1
+
+#define SCHED_FEAT_PARANOID_AVG 0
+
+/*
+ * Delay dequeueing tasks until they get selected or woken.
+ *
+ * By delaying the dequeue for non-eligible tasks, they remain in the
+ * competition and can burn off their negative lag. When they get selected
+ * they'll have positive lag by definition.
+ *
+ * DELAY_ZERO clips the lag on dequeue (or wakeup) to 0.
+ */
+#define SCHED_FEAT_DELAY_DEQUEUE 1
+#define SCHED_FEAT_DELAY_ZERO 1
 
 /*
  * Allow wakeup-time preemption of the current task:
@@ -128,3 +156,9 @@
  * RT class.
  */
 #define SCHED_FEAT_SCHEDTUNE_BOOST_HOLD_ALL 0
+
+/*
+ * Do newidle balancing proportional to its success rate using randomization.
+ */
+#define SCHED_FEAT_NI_RANDOM 1
+#define SCHED_FEAT_NI_RATE 1

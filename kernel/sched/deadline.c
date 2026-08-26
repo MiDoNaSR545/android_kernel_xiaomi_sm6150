@@ -1555,7 +1555,7 @@ static void __dequeue_task_dl(struct rq *rq, struct task_struct *p, int flags)
 	dequeue_pushable_dl_task(rq, p);
 }
 
-static void dequeue_task_dl(struct rq *rq, struct task_struct *p, int flags)
+static bool dequeue_task_dl(struct rq *rq, struct task_struct *p, int flags)
 {
 	update_curr_dl(rq);
 	__dequeue_task_dl(rq, p, flags);
@@ -1576,6 +1576,8 @@ static void dequeue_task_dl(struct rq *rq, struct task_struct *p, int flags)
 	 */
 	if (flags & DEQUEUE_SLEEP)
 		task_non_contending(p);
+
+	return true;
 }
 
 /*
@@ -1613,14 +1615,13 @@ static void yield_task_dl(struct rq *rq)
 static int find_later_rq(struct task_struct *task);
 
 static int
-select_task_rq_dl(struct task_struct *p, int cpu, int sd_flag, int flags,
-		  int sibling_count_hint)
+select_task_rq_dl(struct task_struct *p, int cpu, int flags, int sibling_count_hint)
 {
 	struct task_struct *curr;
 	bool select_rq;
 	struct rq *rq;
 
-	if (sd_flag != SD_BALANCE_WAKE)
+	if (!(flags & WF_TTWU))
 		goto out;
 
 	rq = cpu_rq(cpu);

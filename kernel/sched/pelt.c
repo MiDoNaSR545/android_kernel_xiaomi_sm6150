@@ -240,7 +240,7 @@ ___update_load_avg(struct sched_avg *sa, unsigned long load, unsigned long runna
  *
  *   group: [ see update_cfs_group() ]
  *     se_weight()   = tg->weight * grq->load_avg / tg->load_avg
- *     se_runnable() = se_weight(se) * grq->runnable_load_avg / grq->load_avg
+ *     se_runnable() = grq->h_nr_runnable
  *
  *   load_sum := runnable_sum
  *   load_avg = se_weight(se) * runnable_avg

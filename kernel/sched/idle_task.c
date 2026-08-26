@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "sched.h"
+#include "pelt.h"
 
 /*
  * idle-task scheduling class.
@@ -10,8 +11,7 @@
 
 #ifdef CONFIG_SMP
 static int
-select_task_rq_idle(struct task_struct *p, int cpu, int sd_flag, int flags,
-		    int sibling_count_hint)
+select_task_rq_idle(struct task_struct *p, int cpu, int flags, int sibling_count_hint)
 {
 	return task_cpu(p); /* IDLE tasks as never migrated */
 }
@@ -31,6 +31,13 @@ pick_next_task_idle(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 	put_prev_task(rq, prev);
 	update_idle_core(rq);
 	schedstat_inc(rq->sched_goidle);
+
+	/*
+	 * rq is about to be idle, check if we need to update the
+	 * lost_idle_time of clock_pelt
+	 */
+	update_idle_rq_clock_pelt(rq);
+
 	return rq->idle;
 }
 
@@ -38,18 +45,20 @@ pick_next_task_idle(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
  * It is not legal to sleep in the idle task - print a warning
  * message if some code attempts to do it:
  */
-static void
+static bool
 dequeue_task_idle(struct rq *rq, struct task_struct *p, int flags)
 {
 	raw_spin_unlock_irq(&rq->lock);
 	printk(KERN_ERR "bad: scheduling from the idle thread!\n");
 	dump_stack();
 	raw_spin_lock_irq(&rq->lock);
+	return true;
 }
 
 static void put_prev_task_idle(struct rq *rq, struct task_struct *prev)
 {
 	rq_last_tick_reset(rq);
+	update_rq_avg_idle(rq);
 }
 
 static void task_tick_idle(struct rq *rq, struct task_struct *curr, int queued)
