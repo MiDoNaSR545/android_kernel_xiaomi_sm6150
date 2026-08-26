@@ -768,10 +768,12 @@ overflow:
 	/*
 	 * Note: \Sum (k_i * (w_i >> 1)) != (\Sum (k_i * w_i)) >> 1
 	 */
+	struct rb_node *node;
+
 	cfs_rq->sum_w_vruntime = 0;
 	cfs_rq->sum_weight = 0;
 
-	for (struct rb_node *node = cfs_rq->tasks_timeline.rb_leftmost;
+	for (node = cfs_rq->tasks_timeline.rb_leftmost;
 	     node; node = rb_next(node))
 		__sum_w_vruntime_add(cfs_rq, __node_2_se(node));
 
@@ -903,7 +905,7 @@ bool update_entity_lag(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		/* previous vlag < 0 otherwise se would not be delayed */
 		vlag = max(vlag, se->vlag);
 		if (sched_feat(DELAY_ZERO))
-			vlag = min(vlag, 0);
+			vlag = min_t(s64, vlag, 0);
 	}
 	ret = (vlag == se->vlag);
 	se->vlag = vlag;
@@ -4235,36 +4237,6 @@ static inline unsigned long cfs_rq_load_avg(struct cfs_rq *cfs_rq)
 
 static int idle_balance(struct rq *this_rq, struct rq_flags *rf);
 
-static inline int task_fits_cpu(struct task_struct *p, int cpu)
-{
-	unsigned long uclamp_min = uclamp_eff_value(p, UCLAMP_MIN);
-	unsigned long uclamp_max = uclamp_eff_value(p, UCLAMP_MAX);
-	unsigned long util = task_util_est(p);
-	/*
-	 * Return true only if the cpu fully fits the task requirements, which
-	 * include the utilization but also the performance hints.
-	 */
-	return (util_fits_cpu(util, uclamp_min, uclamp_max, cpu) > 0);
-}
-
-static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
-{
-	if (!static_branch_unlikely(&sched_asym_cpucapacity))
-		return;
-
-	if (!p) {
-		rq->misfit_task_load = 0;
-		return;
-	}
-
-	if (task_fits_cpu(p, cpu_of(rq))) {
-		rq->misfit_task_load = 0;
-		return;
-	}
-
-	rq->misfit_task_load = task_h_load(p);
-}
-
 static inline unsigned long _task_util_est(struct task_struct *p)
 {
 	struct util_est ue = READ_ONCE(p->se.avg.util_est);
@@ -4431,7 +4403,7 @@ static inline int util_fits_cpu(unsigned long util,
 				unsigned long uclamp_max,
 				int cpu)
 {
-	unsigned long capacity_orig, capacity_orig;
+	unsigned long capacity_orig;
 	unsigned long capacity = capacity_of(cpu);
 	bool fits, uclamp_max_fits;
 
@@ -4546,6 +4518,36 @@ static inline int util_fits_cpu(unsigned long util,
 		return -1;
 
 	return fits;
+}
+
+static inline int task_fits_cpu(struct task_struct *p, int cpu)
+{
+	unsigned long uclamp_min = uclamp_eff_value(p, UCLAMP_MIN);
+	unsigned long uclamp_max = uclamp_eff_value(p, UCLAMP_MAX);
+	unsigned long util = task_util_est(p);
+	/*
+	 * Return true only if the cpu fully fits the task requirements, which
+	 * include the utilization but also the performance hints.
+	 */
+	return (util_fits_cpu(util, uclamp_min, uclamp_max, cpu) > 0);
+}
+
+static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
+{
+	if (!static_branch_unlikely(&sched_asym_cpucapacity))
+		return;
+
+	if (!p) {
+		rq->misfit_task_load = 0;
+		return;
+	}
+
+	if (task_fits_cpu(p, cpu_of(rq))) {
+		rq->misfit_task_load = 0;
+		return;
+	}
+
+	rq->misfit_task_load = task_h_load(p);
 }
 
 #else /* CONFIG_SMP */
@@ -4965,9 +4967,6 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 
 	if (flags & DEQUEUE_DELAYED)
 		finish_delayed_dequeue_entity(se);
-
-	if (cfs_rq->nr_queued == 0)
-		update_idle_cfs_rq_clock_pelt(cfs_rq);
 
 	return true;
 }
@@ -6075,14 +6074,19 @@ static inline void hrtick_update(struct rq *rq)
 #endif
 
 #ifdef CONFIG_SMP
-bool cpu_overutilized(int cpu)
+bool __cpu_overutilized(int cpu, int delta)
 {
 	unsigned long rq_util_max;
 
 	rq_util_max = uclamp_rq_get(cpu_rq(cpu), UCLAMP_MAX);
 
 	/* Return true only if the utilization doesn't fit CPU's capacity */
-	return !util_fits_cpu(cpu_util(cpu), 0, rq_util_max, cpu);
+	return !util_fits_cpu(cpu_util(cpu) + delta, 0, rq_util_max, cpu);
+}
+
+bool cpu_overutilized(int cpu)
+{
+	return __cpu_overutilized(cpu, 0);
 }
 
 static bool sd_overutilized(struct sched_domain *sd)
@@ -6127,6 +6131,11 @@ static int sched_idle_rq(struct rq *rq)
 {
 	return unlikely(rq->nr_running == rq->cfs.h_nr_idle &&
 			rq->nr_running);
+}
+
+static int sched_idle_cpu(int cpu)
+{
+	return sched_idle_rq(cpu_rq(cpu));
 }
 
 static int choose_sched_idle_rq(struct rq *rq, struct task_struct *p)
@@ -6184,7 +6193,6 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	int h_nr_idle = task_has_idle_policy(p);
 	int h_nr_runnable = 1;
 	int task_new = !(flags & ENQUEUE_WAKEUP);
-	int idle_h_nr_running = idle_policy(p->policy);
 	bool prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
 				(uclamp_latency_sensitive(p) > 0) : 0;
 	u64 slice = 0;
@@ -9503,6 +9511,8 @@ again:
 	} while (cfs_rq);
 
 	return task_of(se);
+}
+
 struct task_struct *
 pick_next_task_fair(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 {
@@ -9550,7 +9560,7 @@ again:
 		}
 
 		put_prev_entity(cfs_rq, pse);
-		set_next_entity(cfs_rq, se);
+		set_next_entity(cfs_rq, se, true);
 	}
 
 	goto done;
@@ -9560,7 +9570,7 @@ simple:
 		put_prev_task(rq, prev);
 
 	for_each_sched_entity(se)
-		set_next_entity(cfs_rq_of(se), se);
+		set_next_entity(cfs_rq_of(se), se, true);
 
 done: __maybe_unused;
 #ifdef CONFIG_SMP
@@ -9968,15 +9978,11 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	lockdep_assert_held(&env->src_rq->lock);
 
 	/*
-	 * 1) delayed dequeued unless we migrate load, or
-	 * 2) throttled_lb_pair, or
-	 * 3) cannot be migrated to this CPU due to cpus_ptr, or
-	 * 4) running (obviously), or
-	 * 5) are cache-hot on their current CPU.
+	 * 1) throttled_lb_pair, or
+	 * 2) cannot be migrated to this CPU due to cpus_ptr, or
+	 * 3) running (obviously), or
+	 * 4) are cache-hot on their current CPU.
 	 */
-	if ((p->se.sched_delayed) && (env->migration_type != migrate_load))
-		return 0;
-
 	if (throttled_lb_pair(task_group(p), env->src_cpu, env->dst_cpu))
 		return 0;
 
@@ -12264,7 +12270,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	int this_cpu = this_rq->cpu;
 	struct sched_domain *sd;
 	int pulled_task = 0;
-	u64 curr_cost = 0;
+	u64 curr_cost = 0, t0 = 0;
 	bool force_lb = false;
 
 	if (cpu_isolated(this_cpu))
@@ -12364,7 +12370,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 
 			t1 = sched_clock_cpu(this_cpu);
 			domain_cost = t1 - t0;
-			update_newidle_cost(sd, domain_cost);
+			update_newidle_cost(sd, domain_cost, pulled_task);
 			curr_cost += domain_cost;
 			t0 = t1;
 		}

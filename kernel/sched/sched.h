@@ -829,11 +829,6 @@ static inline long se_weight(struct sched_entity *se)
 	return scale_load_down(se->load.weight);
 }
 
-static inline long se_runnable(struct sched_entity *se)
-{
-	return scale_load_down(se->runnable_weight);
-}
-
 static inline bool sched_asym_prefer(int a, int b)
 {
 	return arch_asym_cpu_priority(a) > arch_asym_cpu_priority(b);
@@ -1799,14 +1794,15 @@ static inline void finish_lock_switch(struct rq *rq, struct task_struct *prev)
 }
 
 /* Wake flags. The first three directly map to some SD flag value */
-#define WF_EXEC     0x02 /* Wakeup after exec; maps to SD_BALANCE_EXEC */
-#define WF_FORK     0x04 /* Wakeup after fork; maps to SD_BALANCE_FORK */
-#define WF_TTWU     0x08 /* Wakeup;            maps to SD_BALANCE_WAKE */
+#define WF_EXEC     0x04 /* Wakeup after exec; maps to SD_BALANCE_EXEC */
+#define WF_FORK     0x08 /* Wakeup after fork; maps to SD_BALANCE_FORK */
+#define WF_TTWU     0x10 /* Wakeup;            maps to SD_BALANCE_WAKE */
 
-#define WF_SYNC     0x10 /* Waker goes to sleep after wakeup */
-#define WF_MIGRATED 0x20 /* Internal use, task got migrated */
-#define WF_ON_CPU   0x40 /* Wakee is on_cpu */
-#define WF_RQ_SELECTED		0x80 /* ->select_task_rq() was called */
+#define WF_SYNC     0x20 /* Waker goes to sleep after wakeup */
+#define WF_MIGRATED 0x40 /* Internal use, task got migrated */
+#define WF_ON_CPU   0x80 /* Wakee is on_cpu */
+#define WF_ON_RQ    WF_ON_CPU
+#define WF_RQ_SELECTED 0x100 /* ->select_task_rq() was called */
 
 #ifdef CONFIG_SMP
 static_assert(WF_EXEC == SD_BALANCE_EXEC);
