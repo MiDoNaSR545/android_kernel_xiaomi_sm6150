@@ -51,9 +51,6 @@ struct sugov_policy {
 
 	bool			limits_changed;
 	bool			need_freq_update;
-
-	unsigned long		dvfs_capacity;
-	u16			dvfs_headroom_lut[SCHED_CAPACITY_SCALE + 1];
 };
 
 struct sugov_cpu {
@@ -66,14 +63,7 @@ struct sugov_cpu {
 	u64			last_update;
 
 	unsigned long		util;
-	u16			*dvfs_headroom_lut;
-
 	unsigned long		bw_min;
-
-	/* The field below is for single-CPU policies only: */
-#ifdef CONFIG_NO_HZ_COMMON
-	unsigned long		saved_idle_calls;
-#endif
 };
 
 static DEFINE_PER_CPU(struct sugov_cpu, sugov_cpu);
@@ -163,10 +153,6 @@ static bool sugov_update_next_freq(struct sugov_policy *sg_policy, u64 time,
 		return false;
 
 must_update:
-	if (sg_policy->next_freq > next_freq &&
-	    sg_policy->next_freq != UINT_MAX)
-		next_freq = (sg_policy->next_freq + next_freq) >> 1;
-
 	sg_policy->next_freq = next_freq;
 	sg_policy->last_freq_update_time = time;
 
@@ -362,29 +348,30 @@ unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
 	return min(scale, util);
 }
 
-static inline unsigned long sugov_apply_dvfs_headroom(unsigned long util,
-						      unsigned long capacity,
-						      unsigned long threshold)
-{
-	unsigned long delta, headroom;
-	unsigned long capped_util = min(util, capacity);
-	unsigned long delta_t = (capacity * 220) >> 10;
-
-	delta = capacity - capped_util;
-
-	headroom = min((delta_t * capped_util) / threshold,
-			(delta_t * delta) / (capacity - threshold));
-
-	return capped_util + headroom;
-}
-
-
 static inline unsigned long apply_dvfs_headroom(unsigned long util, int cpu)
 {
-	struct sugov_cpu *sg_cpu = &per_cpu(sugov_cpu, cpu);
+    	unsigned long capacity = capacity_orig_of(cpu);
+    	unsigned long delta, headroom, min_util;
 
-	util = min_t(unsigned long, util, SCHED_CAPACITY_SCALE);
-	return sg_cpu->dvfs_headroom_lut[util];
+    	if (util >= capacity)
+        	return util;
+        /*
+         * Quadratic taper the boosting at the top end as these are expensive
+         * and we don't need that much of a big headroom as we approach max
+         * capacity
+         */
+	delta = capacity - util;
+	headroom = (delta * delta) / (4 * capacity);
+
+	/* 10% of capacity threshold */
+    	min_util = capacity / 10;
+
+    	/* Suppress boosting below the threshold */
+    	if (util < min_util) {
+        	headroom = (headroom * util * util) / (min_util * min_util);
+    	}
+
+    	return util + headroom;
 }
 
 unsigned long sugov_effective_cpu_perf(int cpu, unsigned long actual,
@@ -534,19 +521,6 @@ static unsigned long sugov_iowait_apply(struct sugov_cpu *sg_cpu, u64 time,
 	return (sg_cpu->iowait_boost * max_cap) >> SCHED_CAPACITY_SHIFT;
 }
 
-#ifdef CONFIG_NO_HZ_COMMON
-static bool sugov_cpu_is_busy(struct sugov_cpu *sg_cpu)
-{
-	unsigned long idle_calls = tick_nohz_get_idle_calls_cpu(sg_cpu->cpu);
-	bool ret = idle_calls == sg_cpu->saved_idle_calls;
-
-	sg_cpu->saved_idle_calls = idle_calls;
-	return ret;
-}
-#else
-static inline bool sugov_cpu_is_busy(struct sugov_cpu *sg_cpu) { return false; }
-#endif /* CONFIG_NO_HZ_COMMON */
-
 /*
  * Make sugov_should_update_freq() ignore the rate limit when DL
  * has increased the utilization.
@@ -564,7 +538,6 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
 	unsigned long max_cap, boost;
 	unsigned int next_f;
-	bool busy;
 
 	max_cap = arch_scale_cpu_capacity(sg_cpu->cpu);
 
@@ -576,24 +549,10 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	if (!sugov_should_update_freq(sg_policy, time))
 		return;
 
-	/* Limits may have changed, don't skip frequency update */
-	busy = !sg_policy->need_freq_update && sugov_cpu_is_busy(sg_cpu);
-
 	boost = sugov_iowait_apply(sg_cpu, time, max_cap);
 	sugov_get_util(sg_cpu, boost);
 
 	next_f = get_next_freq(sg_policy, sg_cpu->util, max_cap);
-	/*
-	 * Do not reduce the frequency if the CPU has not been idle
-	 * recently, as the reduction is likely to be premature then.
-	 */
-	if (busy && next_f < sg_policy->next_freq &&
-	    !sg_policy->need_freq_update) {
-		next_f = sg_policy->next_freq;
-
-		/* Restore cached freq as next_freq has changed */
-		sg_policy->cached_raw_freq = sg_policy->prev_cached_raw_freq;
-	}
 
 	/*
 	 * This code runs under rq->lock for the target CPU, so it won't run
@@ -754,25 +713,6 @@ static struct kobj_type sugov_tunables_ktype = {
 
 static struct cpufreq_governor schedutil_gov;
 
-static void sugov_build_dvfs_headroom_lut(struct sugov_policy *sg_policy)
-{
-	struct cpufreq_policy *policy = sg_policy->policy;
-	unsigned long capacity = capacity_orig_of(policy->cpu);
-	unsigned long threshold;
-	unsigned long util;
-
-	if (sg_policy->dvfs_capacity == capacity)
-		return;
-
-	sg_policy->dvfs_capacity = capacity;
-
-	threshold = (capacity * 15) / 100;
-
-	for (util = 0; util <= SCHED_CAPACITY_SCALE; util++)
-		sg_policy->dvfs_headroom_lut[util] =
-			sugov_apply_dvfs_headroom(util, capacity, threshold);
-}
-
 static struct sugov_policy *sugov_policy_alloc(struct cpufreq_policy *policy)
 {
 	struct sugov_policy *sg_policy;
@@ -786,7 +726,7 @@ static struct sugov_policy *sugov_policy_alloc(struct cpufreq_policy *policy)
 	return sg_policy;
 }
 
-static inline void sugov_policy_free(struct sugov_policy *sg_policy)
+static void sugov_policy_free(struct sugov_policy *sg_policy)
 {
 	kfree(sg_policy);
 }
@@ -877,8 +817,6 @@ static int sugov_init(struct cpufreq_policy *policy)
 		ret = -ENOMEM;
 		goto disable_fast_switch;
 	}
-
-	sugov_build_dvfs_headroom_lut(sg_policy);
 
 	ret = sugov_kthread_create(sg_policy);
 	if (ret)
@@ -979,7 +917,6 @@ static int sugov_start(struct cpufreq_policy *policy)
 		memset(sg_cpu, 0, sizeof(*sg_cpu));
 		sg_cpu->cpu			= cpu;
 		sg_cpu->sg_policy		= sg_policy;
-		sg_cpu->dvfs_headroom_lut   = sg_policy->dvfs_headroom_lut;
 	}
 
 	for_each_cpu(cpu, policy->cpus) {
@@ -1014,8 +951,6 @@ static void sugov_limits(struct cpufreq_policy *policy)
 	struct sugov_policy *sg_policy = policy->governor_data;
 	unsigned long flags, now;
 	unsigned int freq;
-
-	sugov_build_dvfs_headroom_lut(sg_policy);
 
 	if (!policy->fast_switch_enabled) {
 		mutex_lock(&sg_policy->work_lock);
