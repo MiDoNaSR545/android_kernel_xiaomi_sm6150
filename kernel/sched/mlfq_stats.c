@@ -494,6 +494,18 @@ static int mlfq_stats_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int mlfq_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mlfq_stats_show, NULL);
+}
+
+static const struct file_operations mlfq_stats_fops = {
+	.open    = mlfq_stats_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 /*
  * subsys_initcall, matching proc_schedstat_init() in stats.c: procfs is up by
  * then, and the scheduler has been running since before any of this, so there
@@ -503,7 +515,7 @@ static int mlfq_stats_show(struct seq_file *m, void *v)
  */
 static int __init mlfq_proc_init(void)
 {
-	proc_create_single("sched_eevdf_mlfq_stats", 0, NULL, mlfq_stats_show);
+	proc_create("sched_eevdf_mlfq_stats", 0, NULL, &mlfq_stats_fops);
 
 	return 0;
 }
