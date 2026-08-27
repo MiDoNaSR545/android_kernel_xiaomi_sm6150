@@ -314,8 +314,9 @@ static void adjust_jiffies(unsigned long val, struct cpufreq_freqs *ci)
 #endif
 }
 
-static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
-		struct cpufreq_freqs *freqs, unsigned int state)
+static void cpufreq_notify_transition(struct cpufreq_policy *policy,
+				      struct cpufreq_freqs *freqs,
+				      unsigned int state)
 {
 	int cpu;
 
@@ -350,33 +351,20 @@ static void __cpufreq_notify_transition(struct cpufreq_policy *policy,
 
 	case CPUFREQ_POSTCHANGE:
 		adjust_jiffies(CPUFREQ_POSTCHANGE, freqs);
-		pr_debug("FREQ: %lu - CPU: %lu\n",
-			 (unsigned long)freqs->new, (unsigned long)freqs->cpu);
-		trace_cpu_frequency(freqs->new, cpu);
+		pr_debug("FREQ: %u - CPUs: %*pbl\n", freqs->new,
+			 cpumask_pr_args(policy->cpus));
+
+		for_each_cpu(cpu, policy->cpus)
+			trace_cpu_frequency(freqs->new, cpu);
+
+		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
+					 CPUFREQ_POSTCHANGE, freqs);
 
 		cpufreq_stats_record_transition(policy, freqs->new);
 		cpufreq_times_record_transition(policy, freqs->new);
-		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
-				CPUFREQ_POSTCHANGE, freqs);
-		if (likely(policy) && likely(policy->cpu == freqs->cpu))
-			policy->cur = freqs->new;
+		policy->cur = freqs->new;
 		break;
 	}
-}
-
-/**
- * cpufreq_notify_transition - call notifier chain and adjust_jiffies
- * on frequency transition.
- *
- * This function calls the transition notifiers and the "adjust_jiffies"
- * function. It is called twice on all CPU frequency changes that have
- * external effects.
- */
-static void cpufreq_notify_transition(struct cpufreq_policy *policy,
-		struct cpufreq_freqs *freqs, unsigned int state)
-{
-	for_each_cpu(freqs->cpu, policy->cpus)
-		__cpufreq_notify_transition(policy, freqs, state);
 }
 
 /* Do post notifications when there are chances that transition has failed */
@@ -2562,14 +2550,14 @@ EXPORT_SYMBOL_GPL(cpufreq_boost_enabled);
  *               FREQUENCY INVARIANT ACCOUNTING SUPPORT              *
  *********************************************************************/
 
-__weak void arch_set_freq_scale(struct cpumask *cpus,
+__weak void arch_set_freq_scale(const struct cpumask *cpus,
 				unsigned long cur_freq,
 				unsigned long max_freq)
 {
 }
 EXPORT_SYMBOL_GPL(arch_set_freq_scale);
 
-__weak void arch_set_max_freq_scale(struct cpumask *cpus,
+__weak void arch_set_max_freq_scale(const struct cpumask *cpus,
 				    unsigned long policy_max_freq)
 {
 }
